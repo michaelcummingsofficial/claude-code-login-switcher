@@ -1,0 +1,10 @@
+# Postinstall scripts pnpm is allowed to run (pnpm blocks them by default).
+# esbuild fetches its native binary for tsup and vitest, vsce-sign fetches the
+# signing tool vsce needs to package, and unrs-resolver backs eslint-plugin-import-x.
+# keytar comes in through ovsx's older vsce and is never used, since publishing
+# reads OVSX_PAT from the environment.
+allowBuilds:
+  "@vscode/vsce-sign": true
+  esbuild: true
+  keytar: false
+  unrs-resolver: true

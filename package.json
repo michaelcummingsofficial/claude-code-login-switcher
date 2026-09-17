@@ -1,0 +1,163 @@
+{
+	"name": "claude-account-switcher",
+	"displayName": "Claude Account Switcher",
+	"description": "Switch Claude Code accounts from the status bar. Your history stays put, and saved logins stay in secure storage.",
+	"version": "1.0.0",
+	"publisher": "michaelcummingsofficial",
+	"private": true,
+	"license": "MIT",
+	"author": "Michael Cummings (https://www.michaelcummin.gs)",
+	"homepage": "https://github.com/michaelcummingsofficial/claude-account-switcher#readme",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/michaelcummingsofficial/claude-account-switcher.git"
+	},
+	"bugs": {
+		"url": "https://github.com/michaelcummingsofficial/claude-account-switcher/issues"
+	},
+	"keywords": [
+		"claude",
+		"claude code",
+		"claude-code",
+		"anthropic",
+		"account",
+		"accounts",
+		"account switcher",
+		"switch account",
+		"multiple accounts",
+		"profiles",
+		"keychain",
+		"macos",
+		"linux",
+		"windows",
+		"oauth",
+		"credentials",
+		"login"
+	],
+	"categories": [
+		"AI",
+		"Other"
+	],
+	"pricing": "Free",
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"main": "./dist/extension.js",
+	"icon": "assets/icon.png",
+	"files": [
+		"dist/extension.js",
+		"assets/icon.png",
+		"assets/logo.woff",
+		"README.md",
+		"LICENSE"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"contributes": {
+		"icons": {
+			"claude-account-switcher-logo": {
+				"description": "Claude Account Switcher logo",
+				"default": {
+					"fontPath": "assets/logo.woff",
+					"fontCharacter": "\\E000"
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "claudeAccounts.switch",
+				"title": "Switch Account",
+				"category": "Claude Accounts"
+			},
+			{
+				"command": "claudeAccounts.saveCurrent",
+				"title": "Save Current Account",
+				"category": "Claude Accounts"
+			},
+			{
+				"command": "claudeAccounts.addAccount",
+				"title": "Add Account (Log In)",
+				"category": "Claude Accounts"
+			},
+			{
+				"command": "claudeAccounts.remove",
+				"title": "Remove Saved Account",
+				"category": "Claude Accounts"
+			},
+			{
+				"command": "claudeAccounts.rename",
+				"title": "Rename Saved Account",
+				"category": "Claude Accounts"
+			},
+			{
+				"command": "claudeAccounts.status",
+				"title": "Show Status",
+				"category": "Claude Accounts"
+			}
+		],
+		"configuration": {
+			"title": "Claude Account Switcher",
+			"properties": {
+				"claudeAccounts.claudeConfigDir": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Claude Code's config folder. Leave it empty to use `CLAUDE_CONFIG_DIR`, or `~/.claude` when that is not set."
+				},
+				"claudeAccounts.keychainService": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "macOS only. The Keychain item Claude Code reads its login from. Leave it empty to derive the name from the config folder."
+				},
+				"claudeAccounts.claudePath": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Absolute path to the `claude` CLI. Leave empty to detect it."
+				},
+				"claudeAccounts.syncIntervalMinutes": {
+					"type": "number",
+					"default": 5,
+					"minimum": 0,
+					"markdownDescription": "How often to copy the live, rotated tokens back into the active saved account. `0` turns the timer off. A sync still runs before every switch."
+				},
+				"claudeAccounts.showStatusBar": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Show the active Claude account in the status bar."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"format": "eslint . --fix && prettier --write \"**/*.ts\"",
+		"install-local": "pnpm package && ${VSCODE_CLI:-code} --install-extension claude-account-switcher.vsix --force",
+		"lint": "eslint .",
+		"package": "vsce package --no-dependencies --out claude-account-switcher.vsix",
+		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"test:keychain": "KEYCHAIN_TESTS=1 vitest run test/integration",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit",
+		"vscode:prepublish": "pnpm build"
+	},
+	"packageManager": "pnpm@11.20.0",
+	"devDependencies": {
+		"@types/node": "^22.20.2",
+		"@types/vscode": "~1.85.0",
+		"@typescript-eslint/eslint-plugin": "^8.70.0",
+		"@typescript-eslint/parser": "^8.70.0",
+		"@vitest/coverage-v8": "^5.0.1",
+		"@vscode/vsce": "^4.0.0",
+		"eslint": "^10.10.0",
+		"eslint-plugin-import-x": "^4.17.1",
+		"jiti": "^2.7.0",
+		"ovsx": "^1.2.0",
+		"prettier": "^3.9.6",
+		"prettier-plugin-organize-imports": "^4.3.0",
+		"tsup": "^8.5.1",
+		"typescript": "^6.0.3",
+		"vitest": "^5.0.1"
+	}
+}

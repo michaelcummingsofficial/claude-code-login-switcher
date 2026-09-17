@@ -1,0 +1,26 @@
+name: "Setup and Build"
+description: "Sets up Node, pnpm, installs dependencies, lints, type-checks, runs tests with coverage and packages the .vsix"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "latest"
+        cache: "pnpm"
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - name: Lint
+      shell: bash
+      run: pnpm lint
+    - name: Typecheck
+      shell: bash
+      run: pnpm typecheck
+    - name: Run tests
+      shell: bash
+      run: pnpm test:coverage
+    - name: Package extension
+      shell: bash
+      run: pnpm package
