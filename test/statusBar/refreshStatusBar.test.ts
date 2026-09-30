@@ -25,7 +25,7 @@ describe("refreshStatusBar", () => {
 	it("shows signed out when there is no live login", async () => {
 		useLiveCredential(null);
 		await refreshStatusBar(statusBar, createTempStore());
-		expect(statusBar.text).toBe("$(claude-account-switcher-logo) Claude: signed out");
+		expect(statusBar.text).toBe("$(claude-code-login-switcher-logo) Claude: signed out");
 		expect(statusBar.tooltip).toBe("No Claude Code login found. Run Claude Accounts: Add Account.");
 		expect(statusBar.show).toHaveBeenCalled();
 	});
@@ -33,7 +33,7 @@ describe("refreshStatusBar", () => {
 	it("shows an unsaved account", async () => {
 		useLiveCredential("tokens");
 		await refreshStatusBar(statusBar, createTempStore());
-		expect(statusBar.text).toBe("$(claude-account-switcher-logo) Claude: unsaved");
+		expect(statusBar.text).toBe("$(claude-code-login-switcher-logo) Claude: unsaved");
 		expect(statusBar.tooltip).toBe("Signed in, but this account is not saved yet. Run Claude Accounts: Save Current Account.");
 	});
 
@@ -44,7 +44,7 @@ describe("refreshStatusBar", () => {
 		await store.add({ label: "Work", email: "ada@work.com", orgName: "Acme", subscriptionType: "team", refreshTokenExpiresAt: expiry }, "tokens");
 		useLiveCredential("tokens");
 		await refreshStatusBar(statusBar, store);
-		expect(statusBar.text).toBe("$(claude-account-switcher-logo) Work");
+		expect(statusBar.text).toBe("$(claude-code-login-switcher-logo) Work");
 		expect(statusBar.tooltip).toBe(`Work\nada@work.com\nAcme\nplan: team\nvalid until ${new Date(expiry).toLocaleString()}`);
 	});
 

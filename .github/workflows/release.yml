@@ -115,11 +115,12 @@ jobs:
 
       # Both registries skip a version they already have, so re-running a failed release is safe.
       - name: Publish to the VS Code Marketplace
-        run: pnpm exec vsce publish --packagePath claude-account-switcher.vsix --skip-duplicate --azure-credential
+        run: pnpm exec vsce publish --packagePath claude-code-login-switcher.vsix --skip-duplicate --azure-credential
 
-      # --trusted-publishing fails loudly when no ID token is available, rather than falling back to an anonymous publish.
-      - name: Publish to Open VSX
-        run: pnpm exec ovsx publish claude-account-switcher.vsix --skip-duplicate --trusted-publishing
+      # Blocked until the Open VSX namespace ownership claim is approved: a trusted publisher can only
+      # be registered on a namespace you own. Uncomment once it is.
+      # - name: Publish to Open VSX
+      #   run: pnpm exec ovsx publish claude-code-login-switcher.vsix --skip-duplicate --trusted-publishing
 
       - name: Create GitHub Release
         env:
@@ -127,7 +128,7 @@ jobs:
           AI_NOTES: ${{ steps.ai_generation.outputs.text }}
         run: |
           printf "%s\n" "$AI_NOTES" > release_notes.md
-          gh release create v${{ needs.check-version.outputs.version }} claude-account-switcher.vsix \
+          gh release create v${{ needs.check-version.outputs.version }} claude-code-login-switcher.vsix \
             --target "$GITHUB_SHA" \
             --notes-file release_notes.md \
             --title "v${{ needs.check-version.outputs.version }}"

@@ -4,7 +4,7 @@ import type { Profile, ProfileStore } from "../profiles/ProfileStore";
 import { getSettings } from "../settings/getSettings";
 
 /** The two-person logo from assets/logo.woff, contributed under `contributes.icons` in package.json. */
-const LOGO = "$(claude-account-switcher-logo)";
+const LOGO = "$(claude-code-login-switcher-logo)";
 
 export async function refreshStatusBar(statusBar: vscode.StatusBarItem, store: ProfileStore): Promise<void> {
 	if (!getSettings().showStatusBar) {

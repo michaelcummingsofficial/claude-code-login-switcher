@@ -1,5 +1,5 @@
 {
-	"name": "claude-account-switcher",
+	"name": "claude-code-login-switcher",
 	"displayName": "Claude Account Switcher",
 	"description": "Switch Claude Code accounts from the status bar. Your history stays put, and saved logins stay in secure storage.",
 	"version": "1.0.0",
@@ -7,13 +7,13 @@
 	"private": true,
 	"license": "MIT",
 	"author": "Michael Cummings (https://www.michaelcummin.gs)",
-	"homepage": "https://github.com/michaelcummingsofficial/claude-account-switcher#readme",
+	"homepage": "https://github.com/michaelcummingsofficial/claude-code-login-switcher#readme",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/michaelcummingsofficial/claude-account-switcher.git"
+		"url": "https://github.com/michaelcummingsofficial/claude-code-login-switcher.git"
 	},
 	"bugs": {
-		"url": "https://github.com/michaelcummingsofficial/claude-account-switcher/issues"
+		"url": "https://github.com/michaelcummingsofficial/claude-code-login-switcher/issues"
 	},
 	"keywords": [
 		"claude",
@@ -56,7 +56,7 @@
 	],
 	"contributes": {
 		"icons": {
-			"claude-account-switcher-logo": {
+			"claude-code-login-switcher-logo": {
 				"description": "Claude Account Switcher logo",
 				"default": {
 					"fontPath": "assets/logo.woff",
@@ -132,9 +132,9 @@
 		"build": "tsup",
 		"dev": "tsup --watch",
 		"format": "eslint . --fix && prettier --write \"**/*.ts\"",
-		"install-local": "pnpm package && ${VSCODE_CLI:-code} --install-extension claude-account-switcher.vsix --force",
+		"install-local": "pnpm package && ${VSCODE_CLI:-code} --install-extension claude-code-login-switcher.vsix --force",
 		"lint": "eslint .",
-		"package": "vsce package --no-dependencies --out claude-account-switcher.vsix",
+		"package": "vsce package --no-dependencies --out claude-code-login-switcher.vsix",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"test:keychain": "KEYCHAIN_TESTS=1 vitest run test/integration",

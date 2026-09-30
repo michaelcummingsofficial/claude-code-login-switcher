@@ -45,7 +45,7 @@ describe("package.json", () => {
 	});
 
 	it("contributes the status bar logo and packages its font", () => {
-		const logo = manifest.contributes.icons["claude-account-switcher-logo"];
+		const logo = manifest.contributes.icons["claude-code-login-switcher-logo"];
 		expect(logo).toBeDefined();
 		expect(manifest.files).toContain(logo!.default.fontPath);
 	});

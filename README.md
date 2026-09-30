@@ -2,11 +2,11 @@
 
 **Switch Claude Code accounts without leaving VS Code.** Your history, projects, and settings stay put. Only the login changes.
 
-[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-install-007ACC)](https://marketplace.visualstudio.com/items?itemName=michaelcummingsofficial.claude-account-switcher)
-[![Open VSX version](https://img.shields.io/open-vsx/v/michaelcummingsofficial/claude-account-switcher)](https://open-vsx.org/extension/michaelcummingsofficial/claude-account-switcher)
-[![Open VSX downloads](https://img.shields.io/open-vsx/dt/michaelcummingsofficial/claude-account-switcher)](https://open-vsx.org/extension/michaelcummingsofficial/claude-account-switcher)
-[![license](https://img.shields.io/github/license/michaelcummingsofficial/claude-account-switcher)](https://github.com/michaelcummingsofficial/claude-account-switcher/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/michaelcummingsofficial/claude-account-switcher?style=social)](https://github.com/michaelcummingsofficial/claude-account-switcher)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-install-007ACC)](https://marketplace.visualstudio.com/items?itemName=michaelcummingsofficial.claude-code-login-switcher)
+[![Open VSX version](https://img.shields.io/open-vsx/v/michaelcummingsofficial/claude-code-login-switcher)](https://open-vsx.org/extension/michaelcummingsofficial/claude-code-login-switcher)
+[![Open VSX downloads](https://img.shields.io/open-vsx/dt/michaelcummingsofficial/claude-code-login-switcher)](https://open-vsx.org/extension/michaelcummingsofficial/claude-code-login-switcher)
+[![license](https://img.shields.io/github/license/michaelcummingsofficial/claude-code-login-switcher)](https://github.com/michaelcummingsofficial/claude-code-login-switcher/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/michaelcummingsofficial/claude-code-login-switcher?style=social)](https://github.com/michaelcummingsofficial/claude-code-login-switcher)
 
 ![The Switch Claude account picker in VS Code, listing Work, Personal, and an expired Side project account, with Work shown in the status bar](./assets/vscode.jpg)
 
@@ -40,10 +40,10 @@ It works on Linux and Windows too. There, saved logins go in VS Code's encrypted
 Search for **Claude Account Switcher** in the Extensions view, or run:
 
 ```sh
-code --install-extension michaelcummingsofficial.claude-account-switcher
+code --install-extension michaelcummingsofficial.claude-code-login-switcher
 ```
 
-Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https://open-vsx.org/extension/michaelcummingsofficial/claude-account-switcher).
+Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https://open-vsx.org/extension/michaelcummingsofficial/claude-code-login-switcher).
 
 ## Quick start
 

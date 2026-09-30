@@ -10,7 +10,7 @@ vi.mock("../../src/keychain/readSecret");
 
 function extensionContext() {
 	const secrets = { get: vi.fn(async () => "editor-tokens"), store: vi.fn(), delete: vi.fn() };
-	const context = { globalStorageUri: { fsPath: path.join(os.tmpdir(), "globalStorage", "claude-account-switcher") }, secrets };
+	const context = { globalStorageUri: { fsPath: path.join(os.tmpdir(), "globalStorage", "claude-code-login-switcher") }, secrets };
 	return { context: context as unknown as ExtensionContext, secrets };
 }
 
