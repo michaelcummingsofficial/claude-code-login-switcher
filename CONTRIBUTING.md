@@ -65,10 +65,11 @@ A version that already has a GitHub release is skipped. Re-running a failed rele
 
 ### One-time setup
 
-These steps are for the maintainer publishing the extension.
+These steps are for the maintainer publishing the extension. Neither registry needs a stored token.
 
-1. Create the `michaelcummingsofficial` publisher at [marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage). Then create an Azure DevOps personal access token for all accessible organizations with the **Marketplace: Manage** scope, and save it as the `VSCE_PAT` repository secret.
-2. Sign in to [open-vsx.org](https://open-vsx.org), sign the Eclipse publisher agreement, and create an access token. Save it as the `OVSX_PAT` secret, then claim the namespace once with `pnpm exec ovsx create-namespace michaelcummingsofficial -p <token>`.
-3. Save a Vercel AI Gateway key as the `AI_GATEWAY_API_KEY` secret. It writes the release notes.
-4. Create a `production` environment under the repository's settings. The release job runs in it, so you can require approval there.
-5. Turn on private vulnerability reporting under the repository's security settings, so the link in `SECURITY.md` works.
+1. Create a `production` environment under the repository's settings. The release job runs in it, and both publishing steps are pinned to it. You can require approval there.
+2. Create the `michaelcummingsofficial` publisher at [marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage).
+3. Set up Microsoft Entra ID for the Marketplace. Register an app in Entra ID, which needs no Azure subscription, and add a federated credential on it for this repository and the `production` environment. Save its application ID as the `AZURE_CLIENT_ID` repository variable and your tenant ID as `AZURE_TENANT_ID`. Then run the `Marketplace identity` workflow to print the app's Azure DevOps profile id, add that id as a publisher member with the Contributor role, and re-run the workflow to confirm. Delete that workflow once the first release has published. The [publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension) covers the Azure Pipelines version of the same flow. Azure DevOps personal access tokens stop working on December 1, 2026.
+4. Sign in to [open-vsx.org](https://open-vsx.org), sign the Eclipse publisher agreement, and create an access token. Claim the namespace once with `pnpm exec ovsx create-namespace michaelcummingsofficial -p <token>`, then register a trusted publisher at [open-vsx.org/user-settings/trusted-publishers](https://open-vsx.org/user-settings/trusted-publishers) for this repository, `.github/workflows/release.yml`, and the `production` environment. The token is only needed to claim the namespace. Revoke it afterwards.
+5. Save a Vercel AI Gateway key as the `AI_GATEWAY_API_KEY` secret. It writes the release notes, and it is the only secret the release needs.
+6. Turn on private vulnerability reporting under the repository's security settings, so the link in `SECURITY.md` works.
