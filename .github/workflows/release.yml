@@ -83,7 +83,7 @@ jobs:
           model: "deepseek/deepseek-v4-flash"
           api-key: ${{ secrets.AI_GATEWAY_API_KEY }}
           prompt: |
-            You are a senior software engineer and professional open-source maintainer for Claude Account Switcher (a VS Code extension that switches Claude Code accounts by swapping Claude Code's live login: the Keychain item on macOS, .credentials.json on Linux and Windows).
+            You are a senior software engineer and professional open-source maintainer for Claude Code Login Switcher (a VS Code extension that switches Claude Code accounts by swapping Claude Code's live login: the Keychain item on macOS, .credentials.json on Linux and Windows).
 
             Write a beautiful, clean, and professional GitHub release description and changelog for version v${{ needs.check-version.outputs.version }} based on the commits and code diff below.
 
