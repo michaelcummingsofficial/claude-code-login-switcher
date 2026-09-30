@@ -1,8 +1,8 @@
 {
 	"name": "claude-code-login-switcher",
-	"displayName": "Claude Code Login Switcher",
-	"description": "Switch Claude Code accounts from the status bar. Your history stays put, and saved logins stay in secure storage.",
-	"version": "1.0.0",
+	"displayName": "Claude Code Login & Account Switcher",
+	"description": "Switch between multiple Claude Code accounts from the status bar. Your history stays put, and saved logins stay in secure storage.",
+	"version": "1.0.1",
 	"publisher": "michaelcummingsofficial",
 	"private": true,
 	"license": "MIT",
@@ -57,7 +57,7 @@
 	"contributes": {
 		"icons": {
 			"claude-code-login-switcher-logo": {
-				"description": "Claude Code Login Switcher logo",
+				"description": "Claude Code Login & Account Switcher logo",
 				"default": {
 					"fontPath": "assets/logo.woff",
 					"fontCharacter": "\\E000"
@@ -97,7 +97,7 @@
 			}
 		],
 		"configuration": {
-			"title": "Claude Code Login Switcher",
+			"title": "Claude Code Login & Account Switcher",
 			"properties": {
 				"claudeAccounts.claudeConfigDir": {
 					"type": "string",

@@ -1,4 +1,4 @@
-# Claude Code Login Switcher
+# Claude Code Login & Account Switcher
 
 ## Rules
 

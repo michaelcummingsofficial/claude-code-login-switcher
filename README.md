@@ -1,4 +1,4 @@
-# <img src="./assets/icon.png" width="32" height="32" alt="" /> Claude Code Login Switcher
+# <img src="./assets/icon.png" width="32" height="32" alt="" /> Claude Code Login & Account Switcher
 
 **Switch Claude Code accounts without leaving VS Code.** Your history, projects, and settings stay put. Only the login changes.
 
@@ -37,7 +37,7 @@ It works on Linux and Windows too. There, saved logins go in VS Code's encrypted
 
 ## Install
 
-Search for **Claude Code Login Switcher** in the Extensions view, or run:
+Search for **Claude Code Login & Account Switcher** in the Extensions view, or run:
 
 ```sh
 code --install-extension michaelcummingsofficial.claude-code-login-switcher
@@ -136,4 +136,4 @@ Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 MIT © [Michael Cummings](https://www.michaelcummin.gs)
 
-Claude Code Login Switcher is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.
+Claude Code Login & Account Switcher is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.

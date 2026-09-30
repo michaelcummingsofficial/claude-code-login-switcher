@@ -1,6 +1,6 @@
 # Security
 
-Claude Code Login Switcher handles Claude Code login tokens, so security reports come first.
+Claude Code Login & Account Switcher handles Claude Code login tokens, so security reports come first.
 
 ## Reporting a vulnerability
 
