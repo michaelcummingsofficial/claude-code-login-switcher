@@ -79,6 +79,8 @@ jobs:
       - name: Generate release notes via Vercel AI Gateway
         uses: vercel/ai-action@v2
         id: ai_generation
+        # A gateway outage should not hold a release. The release falls back to GitHub's own notes.
+        continue-on-error: true
         with:
           model: "deepseek/deepseek-v4-flash"
           api-key: ${{ secrets.AI_GATEWAY_API_KEY }}
@@ -117,18 +119,22 @@ jobs:
       - name: Publish to the VS Code Marketplace
         run: pnpm exec vsce publish --packagePath claude-code-login-switcher.vsix --skip-duplicate --azure-credential
 
-      # Blocked until the Open VSX namespace ownership claim is approved: a trusted publisher can only
-      # be registered on a namespace you own. Uncomment once it is.
-      # - name: Publish to Open VSX
-      #   run: pnpm exec ovsx publish claude-code-login-switcher.vsix --skip-duplicate --trusted-publishing
+      - name: Publish to Open VSX
+        run: pnpm exec ovsx publish claude-code-login-switcher.vsix --skip-duplicate --trusted-publishing
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AI_NOTES: ${{ steps.ai_generation.outputs.text }}
         run: |
-          printf "%s\n" "$AI_NOTES" > release_notes.md
+          NOTES=(--generate-notes)
+
+          if [ -n "$AI_NOTES" ]; then
+            printf "%s\n" "$AI_NOTES" > release_notes.md
+            NOTES=(--notes-file release_notes.md)
+          fi
+
           gh release create v${{ needs.check-version.outputs.version }} claude-code-login-switcher.vsix \
             --target "$GITHUB_SHA" \
-            --notes-file release_notes.md \
+            "${NOTES[@]}" \
             --title "v${{ needs.check-version.outputs.version }}"
