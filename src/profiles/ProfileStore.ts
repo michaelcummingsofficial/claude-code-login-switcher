@@ -31,13 +31,17 @@ interface StoreFile {
  * Every VS Code window runs its own copy of the extension against the same file,
  * so nothing is cached. A stale `activeId` in one window would sync the account
  * another window just switched to over the wrong saved profile.
+ *
+ * A window redirected to a workspace account answers with that account instead, and leaves the shared
+ * `activeId` to the windows that follow the shared login.
  */
 export class ProfileStore {
 	readonly path: string;
 
 	constructor(
 		readonly dir: string,
-		private readonly vault: SecretVault
+		private readonly vault: SecretVault,
+		private readonly workspaceAccountId: () => string | undefined = () => undefined
 	) {
 		this.path = path.join(dir, "profiles.json");
 	}
@@ -47,20 +51,26 @@ export class ProfileStore {
 	}
 
 	async activeId(): Promise<string | null> {
-		return (await this.read()).activeId;
+		return this.workspaceAccountId() ?? (await this.read()).activeId;
 	}
 
 	async active(): Promise<Profile | null> {
-		const store = await this.read();
-		return store.profiles.find((profile) => profile.id === store.activeId) ?? null;
+		const activeId = await this.activeId();
+		return (await this.list()).find((profile) => profile.id === activeId) ?? null;
 	}
 
 	async add(profile: Omit<Profile, "id" | "savedAt">, credentials: string): Promise<Profile> {
-		const created: Profile = { ...profile, id: randomUUID(), savedAt: Date.now() };
-		await this.vault.store(created.id, credentials);
 		const store = await this.read();
+		const redirected = this.workspaceAccountId();
+		// A workspace login's folder is named after its account, so a login made there is saved under that name.
+		const reserved = redirected && !store.profiles.some((candidate) => candidate.id === redirected);
+		const created: Profile = { ...profile, id: reserved ? redirected : randomUUID(), savedAt: Date.now() };
+		await this.vault.store(created.id, credentials);
 		store.profiles.push(created);
-		store.activeId = created.id;
+		if (!redirected) {
+			store.activeId = created.id;
+		}
+
 		await this.write(store);
 		return created;
 	}
@@ -85,6 +95,10 @@ export class ProfileStore {
 	}
 
 	async setActive(id: string | null): Promise<void> {
+		if (this.workspaceAccountId()) {
+			return;
+		}
+
 		const store = await this.read();
 		store.activeId = id;
 		await this.write(store);

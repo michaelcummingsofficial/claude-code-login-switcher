@@ -24,6 +24,7 @@ To try a packaged build in your everyday editor, run `pnpm install-local`. It in
 | `src/claude/`      | Finds and runs the `claude` CLI.                                                    |
 | `src/settings/`    | Reads the `claudeAccounts.*` settings.                                              |
 | `src/statusBar/`   | The status bar item.                                                                |
+| `src/workspace/`   | Workspace accounts: a login folder per account, and the redirect that points at it. |
 | `test/`            | Tests, mirroring `src/`.                                                            |
 | `assets/`          | The Marketplace icon, the status bar logo font, and README images.                  |
 
@@ -41,7 +42,7 @@ Code follows the rules in [`.agents/rules/`](./.agents/rules), which [`CLAUDE.md
 | `pnpm test`          | Run the unit tests.                                                     |
 | `pnpm test:coverage` | Run the unit tests with coverage. Anything below 100% fails.            |
 | `pnpm test:keychain` | Run the integration tests against your real login Keychain. macOS only. |
-| `pnpm package`       | Build `claude-code-login-switcher.vsix`.                                   |
+| `pnpm package`       | Build `claude-code-login-switcher.vsix`.                                |
 | `pnpm install-local` | Package and install the `.vsix` into your editor.                       |
 
 ## Testing

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionContext } from "vscode";
 import { addAccount } from "../src/commands/addAccount";
+import { changeSwitchScope } from "../src/commands/changeSwitchScope";
 import { removeAccount } from "../src/commands/removeAccount";
 import { renameAccount } from "../src/commands/renameAccount";
 import { saveCurrentAccount } from "../src/commands/saveCurrentAccount";
@@ -12,10 +13,13 @@ import { createProfileStore } from "../src/profiles/createProfileStore";
 import type { ProfileStore } from "../src/profiles/ProfileStore";
 import { syncActiveAccount } from "../src/profiles/syncActiveAccount";
 import { refreshStatusBar } from "../src/statusBar/refreshStatusBar";
+import { rememberWorkspaceAccount } from "../src/workspace/rememberWorkspaceAccount";
+import { restoreWorkspaceAccount } from "../src/workspace/restoreWorkspaceAccount";
 import { useSettings } from "./helpers/useSettings";
 import { commands, StatusBarAlignment, window, workspace } from "./mocks/vscode";
 
 vi.mock("../src/commands/addAccount");
+vi.mock("../src/commands/changeSwitchScope");
 vi.mock("../src/commands/removeAccount");
 vi.mock("../src/commands/renameAccount");
 vi.mock("../src/commands/saveCurrentAccount");
@@ -24,6 +28,8 @@ vi.mock("../src/commands/switchAccount");
 vi.mock("../src/profiles/createProfileStore");
 vi.mock("../src/profiles/syncActiveAccount");
 vi.mock("../src/statusBar/refreshStatusBar");
+vi.mock("../src/workspace/rememberWorkspaceAccount");
+vi.mock("../src/workspace/restoreWorkspaceAccount");
 
 const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
 	contributes: { commands: { command: string }[] };
@@ -35,12 +41,14 @@ const handlers = {
 	"claudeAccounts.addAccount": addAccount,
 	"claudeAccounts.remove": removeAccount,
 	"claudeAccounts.rename": renameAccount,
-	"claudeAccounts.status": showStatus
+	"claudeAccounts.status": showStatus,
+	"claudeAccounts.changeScope": changeSwitchScope
 };
 const store = { path: "/accounts/profiles.json" } as ProfileStore;
+const environment = { get: vi.fn(), replace: vi.fn(), delete: vi.fn() };
 
 async function activateExtension(): Promise<ExtensionContext> {
-	const context = { subscriptions: [] as { dispose(): unknown }[] } as unknown as ExtensionContext;
+	const context = { subscriptions: [] as { dispose(): unknown }[], environmentVariableCollection: environment } as unknown as ExtensionContext;
 	await activate(context);
 	return context;
 }
@@ -62,6 +70,7 @@ describe("extension", () => {
 		vi.mocked(createProfileStore).mockReturnValue(store);
 		vi.mocked(syncActiveAccount).mockResolvedValue();
 		vi.mocked(refreshStatusBar).mockResolvedValue();
+		vi.mocked(restoreWorkspaceAccount).mockResolvedValue();
 	});
 
 	afterEach(async () => {
@@ -95,11 +104,27 @@ describe("extension", () => {
 			expect(refreshStatusBar).toHaveBeenCalledWith(statusBar, store);
 		});
 
+		it("restores the workspace's account before the first sync", async () => {
+			vi.mocked(syncActiveAccount).mockImplementation(async () => {
+				expect(restoreWorkspaceAccount).toHaveBeenCalledWith(environment, store);
+			});
+			await activateExtension();
+			expect(syncActiveAccount).toHaveBeenCalledTimes(1);
+		});
+
+		it("shows why the workspace's account could not be restored and still starts", async () => {
+			vi.mocked(restoreWorkspaceAccount).mockRejectedValue(new Error("Windows blocked the links"));
+			await activateExtension();
+			expect(window.showErrorMessage).toHaveBeenCalledWith("Windows blocked the links");
+			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
+		});
+
 		it.each(Object.entries(handlers))("runs %s with the store, then refreshes the status bar", async (id, handler) => {
 			await activateExtension();
 			vi.mocked(refreshStatusBar).mockClear();
 			await registeredCommand(id)();
 			expect(handler).toHaveBeenCalledWith(store);
+			expect(rememberWorkspaceAccount).toHaveBeenCalledWith(environment);
 			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
 		});
 
@@ -141,9 +166,10 @@ describe("extension", () => {
 			listenerFor<{ affectsConfiguration(section: string): boolean }>(workspace.onDidChangeConfiguration)({
 				affectsConfiguration: (section) => section === "claudeAccounts"
 			});
-			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
 			expect(vi.getTimerCount()).toBe(1);
 			await vi.advanceTimersByTimeAsync(60_000);
+			expect(restoreWorkspaceAccount).toHaveBeenCalledTimes(2);
+			expect(refreshStatusBar).toHaveBeenCalledTimes(2);
 			expect(syncActiveAccount).toHaveBeenCalledTimes(1);
 		});
 

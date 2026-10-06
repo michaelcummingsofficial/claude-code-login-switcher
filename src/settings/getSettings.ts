@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import * as vscode from "vscode";
 import { serviceForConfigDir } from "../keychain/serviceForConfigDir";
+import { redirectMarker } from "./redirectMarker";
 
 export interface Settings {
 	/** macOS: the Keychain item Claude Code reads its login from. */
@@ -11,17 +12,30 @@ export interface Settings {
 	claudePath: string;
 	syncIntervalMinutes: number;
 	showStatusBar: boolean;
+	switchScope: "global" | "workspace";
+	/** Claude Code's own config folder, whichever account this window uses. Empty means `~/.claude`. */
+	baseConfigDir: string;
+	/** The saved account this window is redirected to. Unset while it follows the login every window shares. */
+	workspaceAccountId?: string;
 }
 
 export function getSettings(): Settings {
 	const config = vscode.workspace.getConfiguration("claudeAccounts");
-	const configDir = expandHome(config.get<string>("claudeConfigDir", "").trim()) || process.env.CLAUDE_CONFIG_DIR || "";
+	const startConfigDir = process.env[redirectMarker];
+	const redirected = startConfigDir !== undefined;
+	const baseConfigDir =
+		expandHome(config.get<string>("claudeConfigDir", "").trim()) || (redirected ? startConfigDir : process.env.CLAUDE_CONFIG_DIR) || "";
+	const configDir = (redirected && process.env.CLAUDE_CONFIG_DIR) || baseConfigDir;
 	return {
-		keychainService: config.get<string>("keychainService", "").trim() || serviceForConfigDir(configDir),
+		// The setting names the shared login's item, which a redirected window must not touch.
+		keychainService: (!redirected && config.get<string>("keychainService", "").trim()) || serviceForConfigDir(configDir),
 		credentialsFile: path.join(configDir || path.join(os.homedir(), ".claude"), ".credentials.json"),
 		claudePath: config.get<string>("claudePath", ""),
 		syncIntervalMinutes: config.get<number>("syncIntervalMinutes", 5),
-		showStatusBar: config.get<boolean>("showStatusBar", true)
+		showStatusBar: config.get<boolean>("showStatusBar", true),
+		switchScope: config.get<Settings["switchScope"]>("switchScope", "global"),
+		baseConfigDir,
+		workspaceAccountId: redirected ? path.basename(configDir) : undefined
 	};
 }
 

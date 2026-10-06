@@ -65,4 +65,29 @@ describe("syncActiveAccount", () => {
 		await expect(syncActiveAccount(createTempStore())).resolves.toBeUndefined();
 		expect(error).toHaveBeenCalledWith("[claudeAccounts] sync failed", "security failed (1)");
 	});
+
+	it("keeps the saved copy when another login of the same account refreshed after this one", async () => {
+		const newer = '{"claudeAiOauth":{"accessToken":"newer","expiresAt":2000}}';
+		const store = createTempStore();
+		const work = await store.add({ label: "Work" }, newer);
+		useLiveCredential('{"claudeAiOauth":{"accessToken":"older","expiresAt":1000}}');
+		await syncActiveAccount(store);
+		await expect(store.credentialsFor(work.id)).resolves.toBe(newer);
+	});
+
+	it("records a plan change that arrives with refreshed tokens", async () => {
+		const store = createTempStore();
+		await store.add({ label: "Work", subscriptionType: "pro" }, "work-tokens");
+		useLiveCredential('{"claudeAiOauth":{"accessToken":"rotated","subscriptionType":"max"}}');
+		await syncActiveAccount(store);
+		await expect(store.active()).resolves.toMatchObject({ subscriptionType: "max" });
+	});
+
+	it("keeps the saved plan when the refreshed tokens do not name one", async () => {
+		const store = createTempStore();
+		await store.add({ label: "Work", subscriptionType: "pro" }, "work-tokens");
+		useLiveCredential(rotated);
+		await syncActiveAccount(store);
+		await expect(store.active()).resolves.toMatchObject({ subscriptionType: "pro" });
+	});
 });
