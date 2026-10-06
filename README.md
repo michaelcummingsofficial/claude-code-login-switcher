@@ -27,6 +27,7 @@ It works on Linux and Windows too. There, saved logins go in VS Code's encrypted
 - **Saved logins stay encrypted.** On macOS, each account gets its own Keychain item. On Linux and Windows, accounts go in VS Code's secret storage.
 - **Works where Claude Code does.** macOS, Linux, and Windows, including Remote SSH, WSL, and container windows.
 - **Keeps up with token refreshes.** Claude Code refreshes its tokens as it runs. The extension saves the fresh copy, so you can switch back later without logging in again.
+- **One account per workspace, if you want.** Change the switch scope, and a switch changes only the workspace you are in.
 - **Consistent across windows.** Every VS Code window reads the same saved state, so a switch in one window holds in the others.
 
 ## Requirements
@@ -63,16 +64,18 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 | `Claude Accounts: Rename Saved Account` | Change an account's name.                                                 |
 | `Claude Accounts: Remove Saved Account` | Forget an account and delete its saved tokens.                            |
 | `Claude Accounts: Show Status`          | Show where the live login is, saved accounts, and `claude auth status`.   |
+| `Claude Accounts: Change Switch Scope`  | Choose whether a switch applies everywhere or to the current workspace.   |
 
 ## Settings
 
-| Setting                              | Default | What it does                                                                                                                      |
-| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `claudeAccounts.claudeConfigDir`     | empty   | Claude Code's config folder. Leave it empty to use `CLAUDE_CONFIG_DIR`, or `~/.claude` when that is not set.                      |
-| `claudeAccounts.keychainService`     | empty   | macOS only. The Keychain item Claude Code reads. Leave it empty to derive the name from the config folder.                        |
-| `claudeAccounts.claudePath`          | empty   | Full path to the `claude` CLI. Leave it empty to search `PATH`, Homebrew, npm's global folder, and the native installer location. |
-| `claudeAccounts.syncIntervalMinutes` | `5`     | How often to save refreshed tokens for the active account. `0` turns the timer off.                                               |
-| `claudeAccounts.showStatusBar`       | `true`  | Show the active account in the status bar.                                                                                        |
+| Setting                              | Default  | What it does                                                                                                                      |
+| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `claudeAccounts.claudeConfigDir`     | empty    | Claude Code's config folder. Leave it empty to use `CLAUDE_CONFIG_DIR`, or `~/.claude` when that is not set.                      |
+| `claudeAccounts.keychainService`     | empty    | macOS only. The Keychain item Claude Code reads. Leave it empty to derive the name from the config folder.                        |
+| `claudeAccounts.claudePath`          | empty    | Full path to the `claude` CLI. Leave it empty to search `PATH`, Homebrew, npm's global folder, and the native installer location. |
+| `claudeAccounts.syncIntervalMinutes` | `5`      | How often to save refreshed tokens for the active account. `0` turns the timer off.                                               |
+| `claudeAccounts.showStatusBar`       | `true`   | Show the active account in the status bar.                                                                                        |
+| `claudeAccounts.switchScope`         | `global` | Where a switch applies. `global` changes the login everywhere. `workspace` changes it for the current workspace only.             |
 
 ## How it works
 
@@ -82,7 +85,10 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 - **Saved accounts on Linux and Windows.** Tokens go in VS Code's secret storage, and `profiles.json` sits in the extension's storage folder. Each editor keeps its own accounts.
 - **Account details.** `profiles.json` holds names, emails, plans, and expiry dates. It never holds a token.
 - **Switching.** The saved login is copied over the live one, and that account becomes active.
-- **Refreshed tokens.** Before every switch, every few minutes, and when VS Code closes, the live login is copied back into the active account.
+- **Refreshed tokens.** Before every switch, every few minutes, and when VS Code closes, the live login is copied back into the active account. The plan shown for the account is updated from it too.
+- **Workspace accounts.** Claude Code keeps one login per config folder. With `claudeAccounts.switchScope` set to `workspace`, each account gets a folder of its own under `logins/<id>`, beside `profiles.json`. Everything in it links back to your real config folder, except the login. A switch sets `CLAUDE_CONFIG_DIR` to that folder for the workspace's new terminals and for the Claude Code panel.
+- **Workspace logins.** On macOS, Claude Code keeps each folder's login in its own Keychain item, named `Claude Code-credentials-<hash>`. On Linux and Windows, it is the `.credentials.json` inside the folder.
+- **Shared between workspaces.** Two workspaces on the same account use the same folder, so they share one login and its refreshes.
 
 An account left unused past its refresh token's expiry needs a fresh login. The switcher marks those accounts in the picker.
 
@@ -93,6 +99,8 @@ An account left unused past its refresh token's expiry needs a fresh login. The 
 - The live login on Linux and Windows is Claude Code's own `.credentials.json`. The extension replaces it in a single step and keeps it readable by your user only, the same way Claude Code does.
 - On macOS, tokens reach the `security` tool through stdin, which keeps them out of the process list. Credentials longer than 4,032 characters use the hex argument form instead, the same way Claude Code does.
 - `profiles.json` and its folder are readable by your user only.
+- A workspace account's folder holds links and, on Linux and Windows, that account's `.credentials.json`. It is readable by your user only. Removing the account deletes the folder and its Keychain item.
+- With `claudeAccounts.switchScope` set to `workspace`, the extension sets `CLAUDE_CONFIG_DIR` for the window's terminals and extensions. The value is a folder path, never a token.
 - Error messages and logs never include token material.
 - The extension itself makes no network requests and collects no telemetry. It runs the `claude` CLI, and on macOS the `security` tool, on your machine.
 
@@ -103,6 +111,20 @@ To report a vulnerability, see [SECURITY.md](./.github/SECURITY.md).
 ### Do my conversations and settings carry over when I switch?
 
 Yes. Every account shares the same `~/.claude`. Only the login changes.
+
+### Can each repo use a different account?
+
+Yes. Run `Claude Accounts: Change Switch Scope` and pick "One account per workspace", or use the last entry in the switch picker. Then switch as usual. The account applies to that workspace only, and VS Code remembers it. A workspace that has not picked an account follows the shared login.
+
+History, projects, settings, skills, plugins, and MCP servers stay shared. Three things to know:
+
+- Open a new terminal or Claude session after a switch. Ones that were already running keep their account.
+- Claude Code outside VS Code, such as in Terminal.app, uses the shared login.
+- On Windows, the links need Developer Mode turned on.
+
+### Why does Claude Code show the wrong email in a workspace?
+
+Claude Code stores the signed-in email with its shared settings, so every workspace sees the last one written. The tokens in use are still the workspace's own. The status bar shows the account that is really active.
 
 ### Do I need to restart Claude Code after switching?
 
@@ -126,7 +148,7 @@ Yes. On Linux and Windows it swaps Claude Code's `.credentials.json`. In a Remot
 
 ### What happens when I remove an account?
 
-Its saved tokens are deleted. The live login is left alone, so you stay signed in.
+Its saved tokens are deleted. The live login is left alone, so you stay signed in. A workspace that used the account goes back to the shared login.
 
 ## Contributing
 

@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import type * as vscode from "vscode";
 import { KeychainVault } from "../keychain/KeychainVault";
+import { getSettings } from "../settings/getSettings";
 import { ProfileStore } from "./ProfileStore";
 
 /**
@@ -10,9 +11,10 @@ import { ProfileStore } from "./ProfileStore";
  * account list stays in that editor's storage folder too and the two never disagree.
  */
 export function createProfileStore(context: vscode.ExtensionContext): ProfileStore {
+	const workspaceAccountId = () => getSettings().workspaceAccountId;
 	if (process.platform === "darwin") {
-		return new ProfileStore(path.join(os.homedir(), ".claude-accounts"), new KeychainVault());
+		return new ProfileStore(path.join(os.homedir(), ".claude-accounts"), new KeychainVault(), workspaceAccountId);
 	}
 
-	return new ProfileStore(context.globalStorageUri.fsPath, context.secrets);
+	return new ProfileStore(context.globalStorageUri.fsPath, context.secrets, workspaceAccountId);
 }

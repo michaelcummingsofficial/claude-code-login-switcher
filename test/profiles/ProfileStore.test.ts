@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { ProfileStore } from "../../src/profiles/ProfileStore";
+import { redirectConfigDir } from "../../src/workspace/redirectConfigDir";
 import { createTempStore } from "../helpers/createTempStore";
 import { memoryVault } from "../helpers/memoryVault";
 
@@ -123,5 +124,30 @@ describe("ProfileStore", () => {
 		await windowA.setActive(work.id);
 		await expect(windowB.activeId()).resolves.toBe(work.id);
 		await expect(windowA.list()).resolves.toEqual([work, personal]);
+	});
+
+	describe("in a window redirected to a workspace account", () => {
+		it("answers with that account and leaves the shared active account alone", async () => {
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, TOKENS);
+			const personal = await store.add({ label: "Personal" }, "personal");
+			redirectConfigDir(`/accounts/logins/${work.id}`);
+			await expect(store.activeId()).resolves.toBe(work.id);
+			await expect(store.active()).resolves.toMatchObject({ label: "Work" });
+			await store.setActive(null);
+			await store.add({ label: "Side project" }, "side");
+			redirectConfigDir(undefined);
+			await expect(store.activeId()).resolves.toBe(personal.id);
+		});
+
+		it("saves a login made in a new account's folder under that folder's id", async () => {
+			const store = createTempStore();
+			redirectConfigDir("/accounts/logins/new-id");
+			await expect(store.active()).resolves.toBeNull();
+			const added = await store.add({ label: "Work" }, TOKENS);
+			expect(added.id).toBe("new-id");
+			await expect(store.credentialsFor("new-id")).resolves.toBe(TOKENS);
+			await expect(store.active()).resolves.toMatchObject({ label: "Work" });
+		});
 	});
 });

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ExtensionContext } from "vscode";
 import { readSecret } from "../../src/keychain/readSecret";
 import { createProfileStore } from "../../src/profiles/createProfileStore";
+import { redirectConfigDir } from "../../src/workspace/redirectConfigDir";
 import { usePlatform } from "../helpers/usePlatform";
 
 vi.mock("../../src/keychain/readSecret");
@@ -34,5 +35,12 @@ describe("createProfileStore", () => {
 		await expect(store.credentialsFor("abc")).resolves.toBe("editor-tokens");
 		expect(secrets.get).toHaveBeenCalledWith("abc");
 		expect(readSecret).not.toHaveBeenCalled();
+	});
+
+	it.each(["darwin", "linux"] as const)("follows this window's workspace account on %s", async (platform) => {
+		usePlatform(platform);
+		const store = createProfileStore(extensionContext().context);
+		redirectConfigDir("/accounts/logins/work-id");
+		await expect(store.activeId()).resolves.toBe("work-id");
 	});
 });

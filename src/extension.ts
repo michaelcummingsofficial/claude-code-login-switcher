@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { addAccount } from "./commands/addAccount";
+import { changeSwitchScope } from "./commands/changeSwitchScope";
 import { removeAccount } from "./commands/removeAccount";
 import { renameAccount } from "./commands/renameAccount";
 import { saveCurrentAccount } from "./commands/saveCurrentAccount";
@@ -10,6 +11,8 @@ import type { ProfileStore } from "./profiles/ProfileStore";
 import { syncActiveAccount } from "./profiles/syncActiveAccount";
 import { getSettings } from "./settings/getSettings";
 import { refreshStatusBar } from "./statusBar/refreshStatusBar";
+import { rememberWorkspaceAccount } from "./workspace/rememberWorkspaceAccount";
+import { restoreWorkspaceAccount } from "./workspace/restoreWorkspaceAccount";
 
 const commands: Record<string, (store: ProfileStore) => Promise<unknown>> = {
 	"claudeAccounts.switch": switchAccount,
@@ -17,7 +20,8 @@ const commands: Record<string, (store: ProfileStore) => Promise<unknown>> = {
 	"claudeAccounts.addAccount": addAccount,
 	"claudeAccounts.remove": removeAccount,
 	"claudeAccounts.rename": renameAccount,
-	"claudeAccounts.status": showStatus
+	"claudeAccounts.status": showStatus,
+	"claudeAccounts.changeScope": changeSwitchScope
 };
 
 let store: ProfileStore | undefined;
@@ -29,6 +33,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	statusBar.command = "claudeAccounts.switch";
 	const refresh = () => refreshStatusBar(statusBar, accounts);
+	const restoreAccount = () =>
+		restoreWorkspaceAccount(context.environmentVariableCollection, accounts).catch(
+			(error: Error) => void vscode.window.showErrorMessage(error.message)
+		);
 	const restartSyncTimer = () => {
 		stopSyncTimer();
 		const minutes = getSettings().syncIntervalMinutes;
@@ -48,13 +56,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 					void vscode.window.showErrorMessage((error as Error).message);
 				}
 
+				rememberWorkspaceAccount(context.environmentVariableCollection);
 				await refresh();
 			})
 		),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration("claudeAccounts")) {
 				restartSyncTimer();
-				void refresh();
+				void restoreAccount().then(refresh);
 			}
 		}),
 		// Another window may have switched accounts while this one was in the background.
@@ -64,6 +73,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		})
 	);
+	await restoreAccount();
 	await syncActiveAccount(accounts);
 	await refresh();
 	restartSyncTimer();

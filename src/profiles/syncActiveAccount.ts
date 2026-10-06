@@ -1,7 +1,9 @@
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
 import { detectActiveProfile } from "./detectActiveProfile";
-import type { ProfileStore } from "./ProfileStore";
+import { isSuperseded } from "./isSuperseded";
+import type { Profile, ProfileStore } from "./ProfileStore";
 import { refreshTokenExpiryOf } from "./refreshTokenExpiryOf";
+import { subscriptionTypeOf } from "./subscriptionTypeOf";
 
 /**
  * Claude Code rotates the tokens in place, so the copy saved for the active
@@ -16,11 +18,24 @@ export async function syncActiveAccount(store: ProfileStore): Promise<void> {
 		}
 
 		const id = (await store.activeId()) ?? (await detectActiveProfile(store, live))?.id;
-		if (!id || (await store.credentialsFor(id)) === live) {
+		if (!id) {
 			return;
 		}
 
-		await store.update(id, { refreshTokenExpiresAt: refreshTokenExpiryOf(live) }, live);
+		const saved = await store.credentialsFor(id);
+		// The same account can be live in a workspace login too. Whichever refreshed last holds the usable tokens.
+		if (saved === live || (saved !== null && isSuperseded(live, saved))) {
+			return;
+		}
+
+		const patch: Partial<Profile> = { refreshTokenExpiresAt: refreshTokenExpiryOf(live) };
+		const subscriptionType = subscriptionTypeOf(live);
+		// Claude Code records the plan with the tokens, so an upgrade shows up here without a new login.
+		if (subscriptionType) {
+			patch.subscriptionType = subscriptionType;
+		}
+
+		await store.update(id, patch, live);
 	} catch (error) {
 		console.error("[claudeAccounts] sync failed", (error as Error).message);
 	}

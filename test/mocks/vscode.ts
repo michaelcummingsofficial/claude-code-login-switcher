@@ -9,6 +9,8 @@ export const StatusBarAlignment = { Left: 1, Right: 2 };
 
 export const QuickPickItemKind = { Separator: -1, Default: 0 };
 
+export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 };
+
 export const window = {
 	createStatusBarItem: vi.fn<AnyFunction>(() => ({
 		text: "",
@@ -32,6 +34,6 @@ export const commands = {
 };
 
 export const workspace = {
-	getConfiguration: vi.fn<AnyFunction>(() => ({ get: (_key: string, fallback: unknown) => fallback })),
+	getConfiguration: vi.fn<AnyFunction>(() => ({ get: (_key: string, fallback: unknown) => fallback, inspect: () => undefined, update: vi.fn() })),
 	onDidChangeConfiguration: vi.fn<AnyFunction>(disposable)
 };
