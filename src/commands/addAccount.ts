@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as vscode from "vscode";
 import { claudeCommand } from "../claude/claudeCommand";
+import { reportMissingClaude } from "../claude/reportMissingClaude";
 import { resolveClaudePath } from "../claude/resolveClaudePath";
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
 import { detectActiveProfile } from "../profiles/detectActiveProfile";
@@ -38,7 +39,7 @@ export async function addAccount(store: ProfileStore): Promise<void> {
 
 	const claudePath = resolveClaudePath(settings.claudePath);
 	if (!claudePath) {
-		void vscode.window.showErrorMessage("Could not find the claude CLI. Set claudeAccounts.claudePath to its full path.");
+		void reportMissingClaude();
 		return;
 	}
 

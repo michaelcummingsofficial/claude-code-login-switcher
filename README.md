@@ -33,7 +33,7 @@ It works on Linux and Windows too. There, saved logins go in VS Code's encrypted
 ## Requirements
 
 - macOS, Linux, or Windows
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with the `claude` CLI, signed in at least once
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code), signed in at least once. The Claude Code extension is enough, with or without the `claude` CLI installed.
 - VS Code 1.85 or later, or an editor that installs extensions from Open VSX
 
 ## Install
@@ -72,7 +72,7 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 | ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `claudeAccounts.claudeConfigDir`     | empty    | Claude Code's config folder. Leave it empty to use `CLAUDE_CONFIG_DIR`, or `~/.claude` when that is not set.                      |
 | `claudeAccounts.keychainService`     | empty    | macOS only. The Keychain item Claude Code reads. Leave it empty to derive the name from the config folder.                        |
-| `claudeAccounts.claudePath`          | empty    | Full path to the `claude` CLI. Leave it empty to search `PATH`, Homebrew, npm's global folder, and the native installer location. |
+| `claudeAccounts.claudePath`          | empty    | Full path to the `claude` CLI. Leave it empty to search `PATH`, the usual install folders, and the Claude Code extension.         |
 | `claudeAccounts.syncIntervalMinutes` | `5`      | How often to save refreshed tokens for the active account. `0` turns the timer off.                                               |
 | `claudeAccounts.showStatusBar`       | `true`   | Show the active account in the status bar.                                                                                        |
 | `claudeAccounts.switchScope`         | `global` | Where a switch applies. `global` changes the login everywhere. `workspace` changes it for the current workspace only.             |

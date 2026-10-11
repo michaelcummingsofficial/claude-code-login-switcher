@@ -2,7 +2,7 @@
 	"name": "claude-code-login-switcher",
 	"displayName": "Claude Code Login & Account Switcher",
 	"description": "Switch between multiple Claude Code accounts from the status bar. Your history stays put, and saved logins stay in secure storage.",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"publisher": "michaelcummingsofficial",
 	"private": true,
 	"license": "MIT",
@@ -117,7 +117,7 @@
 				"claudeAccounts.claudePath": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "Absolute path to the `claude` CLI. Leave empty to detect it."
+					"markdownDescription": "Full path to the `claude` CLI. Leave it empty to find it automatically, including the one inside the Claude Code extension."
 				},
 				"claudeAccounts.syncIntervalMinutes": {
 					"type": "number",
