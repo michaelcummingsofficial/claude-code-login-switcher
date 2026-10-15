@@ -15,6 +15,7 @@ describe("getSettings", () => {
 			syncIntervalMinutes: 5,
 			showStatusBar: true,
 			switchScope: "global",
+			restartClaudeCode: true,
 			baseConfigDir: "",
 			workspaceAccountId: undefined
 		});

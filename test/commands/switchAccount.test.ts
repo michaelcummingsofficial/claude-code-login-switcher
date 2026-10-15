@@ -107,7 +107,7 @@ describe("switchAccount", () => {
 		await switchAccount(store);
 		expect(live.value).toBe("work-tokens");
 		await expect(store.activeId()).resolves.toBe(work.id);
-		expect(window.showInformationMessage).toHaveBeenCalledWith('Switched to "Work". Restart any running Claude session to use it.');
+		expect(window.showInformationMessage).toHaveBeenCalledWith('Switched to "Work". Restart any Claude session running in a terminal to use it.');
 	});
 
 	it("saves the outgoing account's rotated tokens before switching away", async () => {
@@ -128,7 +128,7 @@ describe("switchAccount", () => {
 		await store.add({ label: "Personal" }, "personal-tokens");
 		pick("Work");
 		await switchAccount(store);
-		expect(window.showInformationMessage).toHaveBeenCalledWith('Switched to "Work". Restart any running Claude session to use it.');
+		expect(window.showInformationMessage).toHaveBeenCalledWith('Switched to "Work". Restart any Claude session running in a terminal to use it.');
 		expect(window.showWarningMessage).not.toHaveBeenCalled();
 	});
 
@@ -181,7 +181,7 @@ describe("switchAccount", () => {
 			await switchAccount(store);
 			expect(useWorkspaceAccount).toHaveBeenCalledWith(store, work.id);
 			expect(live.value).toBe("personal-tokens");
-			expect(window.showInformationMessage).toHaveBeenCalledWith('Switched this workspace to "Work". Open a new terminal or Claude session to use it.');
+			expect(window.showInformationMessage).toHaveBeenCalledWith('Switched this workspace to "Work". Open a new terminal to use it there.');
 			redirectConfigDir(undefined);
 			await expect(store.activeId()).resolves.toBe(personal.id);
 		});

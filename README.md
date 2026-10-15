@@ -52,7 +52,7 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 2. Run `Claude Accounts: Save Current Account` and give the account a name.
 3. Run `Claude Accounts: Add Account (Log In)` to sign in to your next account. The current one is saved first.
 4. Click the account name in the status bar to switch.
-5. Restart any `claude` session that was already running.
+5. Restart any `claude` session already running in a terminal. The Claude Code panel restarts on its own.
 
 ## Commands
 
@@ -76,6 +76,7 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 | `claudeAccounts.syncIntervalMinutes` | `5`      | How often to save refreshed tokens for the active account. `0` turns the timer off.                                               |
 | `claudeAccounts.showStatusBar`       | `true`   | Show the active account in the status bar.                                                                                        |
 | `claudeAccounts.switchScope`         | `global` | Where a switch applies. `global` changes the login everywhere. `workspace` changes it for the current workspace only.             |
+| `claudeAccounts.restartClaudeCode`   | `true`   | Restart extensions when the window changes accounts, so the Claude Code panel uses the new one right away.                        |
 
 ## How it works
 
@@ -89,6 +90,8 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 - **Workspace accounts.** Claude Code keeps one login per config folder. With `claudeAccounts.switchScope` set to `workspace`, each account gets a folder of its own under `logins/<id>`, beside `profiles.json`. Everything in it links back to your real config folder, except the login. A switch sets `CLAUDE_CONFIG_DIR` to that folder for the workspace's new terminals and for the Claude Code panel.
 - **Workspace logins.** On macOS, Claude Code keeps each folder's login in its own Keychain item, named `Claude Code-credentials-<hash>`. On Linux and Windows, it is the `.credentials.json` inside the folder.
 - **Shared between workspaces.** Two workspaces on the same account use the same folder, so they share one login and its refreshes.
+- **Starting with Claude Code.** The extension starts alongside the Claude Code panel and points it at the workspace's account before Claude Code checks the login.
+- **Restarting Claude Code.** Claude Code checks the login when it starts and keeps the answer. When a switch, a new login, a removal, or a scope change moves the window to another login, the extension restarts the window's extensions. Claude Code starts again on the new login and picks its sessions back up. Turn this off with `claudeAccounts.restartClaudeCode`.
 
 An account left unused past its refresh token's expiry needs a fresh login. The switcher marks those accounts in the picker.
 
@@ -118,7 +121,7 @@ Yes. Run `Claude Accounts: Change Switch Scope` and pick "One account per worksp
 
 History, projects, settings, skills, plugins, and MCP servers stay shared. Three things to know:
 
-- Open a new terminal or Claude session after a switch. Ones that were already running keep their account.
+- Open a new terminal after a switch. Terminals that were already running keep their account. The Claude Code panel restarts on its own.
 - Claude Code outside VS Code, such as in Terminal.app, uses the shared login.
 - On Windows, the links need Developer Mode turned on.
 
@@ -128,7 +131,9 @@ Claude Code stores the signed-in email with its shared settings, so every worksp
 
 ### Do I need to restart Claude Code after switching?
 
-Restart sessions that were already running. A running session may keep the account it started with. New sessions use the new account.
+No. The extension restarts the window's extensions, and the Claude Code panel comes back on the new account with its sessions intact. Other extensions restart too, which takes a moment.
+
+A `claude` session running in a terminal keeps its account until you restart it. With `claudeAccounts.restartClaudeCode` turned off, restart the panel's sessions yourself, or run **Developer: Reload Window**.
 
 ### Can I sign in with `claude auth login` in a terminal?
 

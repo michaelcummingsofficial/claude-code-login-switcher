@@ -4,6 +4,7 @@ import { getSettings, type Settings } from "../src/settings/getSettings";
 
 interface Manifest {
 	main: string;
+	activationEvents: string[];
 	icon: string;
 	files: string[];
 	engines: { vscode: string };
@@ -38,6 +39,12 @@ describe("package.json", () => {
 		}
 
 		expect(getSettings()[name as keyof Settings]).toBe(fallback);
+	});
+
+	it("starts alongside Claude Code's panel and side bar, so the workspace's login is in place before Claude Code reads it", () => {
+		expect(manifest.activationEvents).toEqual(
+			expect.arrayContaining(["onWebviewPanel:claudeVSCodePanel", "onView:claudeVSCodeSidebar", "onView:claudeVSCodeSidebarSecondary"])
+		);
 	});
 
 	it("pins @types/vscode to the oldest supported VS Code, so newer APIs can't slip in", () => {

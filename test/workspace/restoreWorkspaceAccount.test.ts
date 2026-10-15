@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EnvironmentVariableCollection } from "vscode";
 import { loginDirFor } from "../../src/workspace/loginDirFor";
@@ -27,6 +28,25 @@ describe("restoreWorkspaceAccount", () => {
 		await restoreWorkspaceAccount(environment, store);
 		expect(useWorkspaceAccount).toHaveBeenCalledWith(store, work.id);
 		expect(rememberWorkspaceAccount).toHaveBeenCalledWith(environment);
+	});
+
+	it("points the window at its account before the first await, so Claude Code starting alongside reads that login", async () => {
+		useSettings({ switchScope: "workspace" });
+		const store = createTempStore();
+		const work = await store.add({ label: "Work" }, "work-tokens");
+		const dir = loginDirFor(store.dir, work.id);
+		fs.mkdirSync(dir, { recursive: true });
+		const restoring = restoreWorkspaceAccount(remembering(dir), store);
+		expect(process.env.CLAUDE_CONFIG_DIR).toBe(dir);
+		await restoring;
+	});
+
+	it("leaves pointing at a missing login folder to the full restore, which rebuilds or drops it", async () => {
+		useSettings({ switchScope: "workspace" });
+		const store = createTempStore();
+		const restoring = restoreWorkspaceAccount(remembering(loginDirFor(store.dir, "gone-id")), store);
+		expect(process.env.CLAUDE_CONFIG_DIR).toBeUndefined();
+		await restoring;
 	});
 
 	it.each([
