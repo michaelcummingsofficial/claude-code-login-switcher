@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ClaudeCodeRestarter } from "./claude/ClaudeCodeRestarter";
 import { addAccount } from "./commands/addAccount";
 import { changeSwitchScope } from "./commands/changeSwitchScope";
 import { removeAccount } from "./commands/removeAccount";
@@ -32,6 +33,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	store = accounts;
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	statusBar.command = "claudeAccounts.switch";
+	const restarter = new ClaudeCodeRestarter(accounts);
 	const refresh = () => refreshStatusBar(statusBar, accounts);
 	const restoreAccount = () =>
 		restoreWorkspaceAccount(context.environmentVariableCollection, accounts).catch(
@@ -49,21 +51,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		statusBar,
 		{ dispose: stopSyncTimer },
 		...Object.entries(commands).map(([id, command]) =>
-			vscode.commands.registerCommand(id, async () => {
-				try {
-					await command(accounts);
-				} catch (error) {
-					void vscode.window.showErrorMessage((error as Error).message);
-				}
+			vscode.commands.registerCommand(id, () =>
+				restarter.follow(async () => {
+					try {
+						await command(accounts);
+					} catch (error) {
+						void vscode.window.showErrorMessage((error as Error).message);
+					}
 
-				rememberWorkspaceAccount(context.environmentVariableCollection);
-				await refresh();
-			})
+					rememberWorkspaceAccount(context.environmentVariableCollection);
+					await refresh();
+				})
+			)
 		),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration("claudeAccounts")) {
 				restartSyncTimer();
-				void restoreAccount().then(refresh);
+				void restarter.follow(() => restoreAccount().then(refresh));
 			}
 		}),
 		// Another window may have switched accounts while this one was in the background.

@@ -52,7 +52,10 @@
 		"LICENSE"
 	],
 	"activationEvents": [
-		"onStartupFinished"
+		"onStartupFinished",
+		"onWebviewPanel:claudeVSCodePanel",
+		"onView:claudeVSCodeSidebar",
+		"onView:claudeVSCodeSidebarSecondary"
 	],
 	"contributes": {
 		"icons": {
@@ -142,6 +145,11 @@
 					],
 					"default": "global",
 					"markdownDescription": "Where a switch applies. `workspace` gives each workspace its own account, in its terminals and in the Claude Code panel. History, settings, and MCP servers stay shared."
+				},
+				"claudeAccounts.restartClaudeCode": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Restart extensions when this window changes accounts, so an open Claude Code panel uses the new one. Claude Code picks its sessions back up."
 				}
 			}
 		}

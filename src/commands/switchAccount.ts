@@ -81,8 +81,8 @@ async function applyProfile(store: ProfileStore, profile: Profile, scoped: boole
 
 	void vscode.window.showInformationMessage(
 		scoped
-			? `Switched this workspace to "${profile.label}". Open a new terminal or Claude session to use it.`
-			: `Switched to "${profile.label}". Restart any running Claude session to use it.`
+			? `Switched this workspace to "${profile.label}". Open a new terminal to use it there.`
+			: `Switched to "${profile.label}". Restart any Claude session running in a terminal to use it.`
 	);
 }
 

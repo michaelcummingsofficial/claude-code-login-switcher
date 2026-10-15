@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionContext } from "vscode";
+import { ClaudeCodeRestarter } from "../src/claude/ClaudeCodeRestarter";
 import { addAccount } from "../src/commands/addAccount";
 import { changeSwitchScope } from "../src/commands/changeSwitchScope";
 import { removeAccount } from "../src/commands/removeAccount";
@@ -18,6 +19,7 @@ import { restoreWorkspaceAccount } from "../src/workspace/restoreWorkspaceAccoun
 import { useSettings } from "./helpers/useSettings";
 import { commands, StatusBarAlignment, window, workspace } from "./mocks/vscode";
 
+vi.mock("../src/claude/ClaudeCodeRestarter");
 vi.mock("../src/commands/addAccount");
 vi.mock("../src/commands/changeSwitchScope");
 vi.mock("../src/commands/removeAccount");
@@ -71,6 +73,9 @@ describe("extension", () => {
 		vi.mocked(syncActiveAccount).mockResolvedValue();
 		vi.mocked(refreshStatusBar).mockResolvedValue();
 		vi.mocked(restoreWorkspaceAccount).mockResolvedValue();
+		vi.mocked(ClaudeCodeRestarter.prototype.follow).mockImplementation(async (change) => {
+			await change();
+		});
 	});
 
 	afterEach(async () => {
@@ -128,6 +133,18 @@ describe("extension", () => {
 			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
 		});
 
+		it("runs every command through the Claude Code restarter, after the window's login is remembered", async () => {
+			await activateExtension();
+			vi.mocked(ClaudeCodeRestarter.prototype.follow).mockImplementation(async (change) => {
+				expect(rememberWorkspaceAccount).not.toHaveBeenCalled();
+				await change();
+				expect(rememberWorkspaceAccount).toHaveBeenCalledWith(environment);
+			});
+			await registeredCommand("claudeAccounts.switch")();
+			expect(ClaudeCodeRestarter).toHaveBeenCalledWith(store);
+			expect(ClaudeCodeRestarter.prototype.follow).toHaveBeenCalledTimes(1);
+		});
+
 		it("shows a failed command's error and still refreshes", async () => {
 			vi.mocked(addAccount).mockRejectedValue(new Error('Could not write Keychain item "x": security failed (1)'));
 			await activateExtension();
@@ -168,6 +185,7 @@ describe("extension", () => {
 			});
 			expect(vi.getTimerCount()).toBe(1);
 			await vi.advanceTimersByTimeAsync(60_000);
+			expect(ClaudeCodeRestarter.prototype.follow).toHaveBeenCalledTimes(1);
 			expect(restoreWorkspaceAccount).toHaveBeenCalledTimes(2);
 			expect(refreshStatusBar).toHaveBeenCalledTimes(2);
 			expect(syncActiveAccount).toHaveBeenCalledTimes(1);

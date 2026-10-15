@@ -21,7 +21,7 @@ To try a packaged build in your everyday editor, run `pnpm install-local`. It in
 | `src/keychain/`    | macOS only. Reads, writes, and deletes Keychain items through `security`.           |
 | `src/profiles/`    | Saved accounts, where each platform keeps them, and token syncing.                  |
 | `src/files/`       | Atomic, owner-only file writes.                                                     |
-| `src/claude/`      | Finds and runs the `claude` CLI.                                                    |
+| `src/claude/`      | Finds and runs the `claude` CLI, and restarts Claude Code when the login changes.   |
 | `src/settings/`    | Reads the `claudeAccounts.*` settings.                                              |
 | `src/statusBar/`   | The status bar item.                                                                |
 | `src/workspace/`   | Workspace accounts: a login folder per account, and the redirect that points at it. |

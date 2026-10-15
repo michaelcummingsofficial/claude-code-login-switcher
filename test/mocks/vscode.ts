@@ -30,7 +30,12 @@ export const window = {
 };
 
 export const commands = {
+	executeCommand: vi.fn<AnyFunction>(async () => undefined),
 	registerCommand: vi.fn<AnyFunction>(disposable)
+};
+
+export const extensions = {
+	getExtension: vi.fn<AnyFunction>(() => undefined)
 };
 
 export const workspace = {
