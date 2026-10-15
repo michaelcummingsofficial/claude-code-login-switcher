@@ -14,6 +14,7 @@ describe("getSettings", () => {
 			claudePath: "",
 			syncIntervalMinutes: 5,
 			showStatusBar: true,
+			showUsage: false,
 			switchScope: "global",
 			restartClaudeCode: true,
 			baseConfigDir: "",

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { getSettings, type Settings } from "../settings/getSettings";
+import { updateSetting } from "../settings/updateSetting";
 
 const scopes: { scope: Settings["switchScope"]; label: string; detail: string }[] = [
 	{ scope: "global", label: "One account everywhere", detail: "A switch changes the login in every workspace and terminal." },
@@ -20,9 +21,5 @@ export async function changeSwitchScope(): Promise<void> {
 		return;
 	}
 
-	const config = vscode.workspace.getConfiguration("claudeAccounts");
-	// A value set for this workspace hides the user setting, so the change has to land where the value is.
-	const target =
-		config.inspect("switchScope")?.workspaceValue === undefined ? vscode.ConfigurationTarget.Global : vscode.ConfigurationTarget.Workspace;
-	await config.update("switchScope", picked.scope, target);
+	await updateSetting("switchScope", picked.scope);
 }

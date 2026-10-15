@@ -24,6 +24,7 @@ To try a packaged build in your everyday editor, run `pnpm install-local`. It in
 | `src/claude/`      | Finds and runs the `claude` CLI, and restarts Claude Code when the login changes.   |
 | `src/settings/`    | Reads the `claudeAccounts.*` settings.                                              |
 | `src/statusBar/`   | The status bar item.                                                                |
+| `src/usage/`       | Reads the 5-hour and weekly usage of the live login from Anthropic.                 |
 | `src/workspace/`   | Workspace accounts: a login folder per account, and the redirect that points at it. |
 | `test/`            | Tests, mirroring `src/`.                                                            |
 | `assets/`          | The Marketplace icon, the status bar logo font, and README images.                  |
