@@ -9,11 +9,13 @@ import { renameAccount } from "../src/commands/renameAccount";
 import { saveCurrentAccount } from "../src/commands/saveCurrentAccount";
 import { showStatus } from "../src/commands/showStatus";
 import { switchAccount } from "../src/commands/switchAccount";
+import { toggleUsage } from "../src/commands/toggleUsage";
 import { activate, deactivate } from "../src/extension";
 import { createProfileStore } from "../src/profiles/createProfileStore";
 import type { ProfileStore } from "../src/profiles/ProfileStore";
 import { syncActiveAccount } from "../src/profiles/syncActiveAccount";
 import { refreshStatusBar } from "../src/statusBar/refreshStatusBar";
+import { UsageStatusItem } from "../src/statusBar/UsageStatusItem";
 import { rememberWorkspaceAccount } from "../src/workspace/rememberWorkspaceAccount";
 import { restoreWorkspaceAccount } from "../src/workspace/restoreWorkspaceAccount";
 import { useSettings } from "./helpers/useSettings";
@@ -27,9 +29,11 @@ vi.mock("../src/commands/renameAccount");
 vi.mock("../src/commands/saveCurrentAccount");
 vi.mock("../src/commands/showStatus");
 vi.mock("../src/commands/switchAccount");
+vi.mock("../src/commands/toggleUsage");
 vi.mock("../src/profiles/createProfileStore");
 vi.mock("../src/profiles/syncActiveAccount");
 vi.mock("../src/statusBar/refreshStatusBar");
+vi.mock("../src/statusBar/UsageStatusItem");
 vi.mock("../src/workspace/rememberWorkspaceAccount");
 vi.mock("../src/workspace/restoreWorkspaceAccount");
 
@@ -44,7 +48,8 @@ const handlers = {
 	"claudeAccounts.remove": removeAccount,
 	"claudeAccounts.rename": renameAccount,
 	"claudeAccounts.status": showStatus,
-	"claudeAccounts.changeScope": changeSwitchScope
+	"claudeAccounts.changeScope": changeSwitchScope,
+	"claudeAccounts.toggleUsage": toggleUsage
 };
 const store = { path: "/accounts/profiles.json" } as ProfileStore;
 const environment = { get: vi.fn(), replace: vi.fn(), delete: vi.fn() };
@@ -165,6 +170,16 @@ describe("extension", () => {
 			await vi.advanceTimersByTimeAsync(1_000);
 			expect(syncActiveAccount).toHaveBeenCalledTimes(1);
 			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
+		});
+
+		it("adds a usage item for the store's accounts and refreshes it with the account item", async () => {
+			const context = await activateExtension();
+			const usage = vi.mocked(UsageStatusItem).mock.instances[0]!;
+			expect(UsageStatusItem).toHaveBeenCalledWith(store);
+			expect(context.subscriptions).toContain(usage);
+			expect(usage.refresh).toHaveBeenCalledTimes(1);
+			await registeredCommand("claudeAccounts.toggleUsage")();
+			expect(usage.refresh).toHaveBeenCalledTimes(2);
 		});
 
 		it("starts no timer when the interval is 0", async () => {

@@ -29,6 +29,7 @@ It works on Linux and Windows too. There, saved logins go in VS Code's encrypted
 - **Keeps up with token refreshes.** Claude Code refreshes its tokens as it runs. The extension saves the fresh copy, so you can switch back later without logging in again.
 - **One account per workspace, if you want.** Change the switch scope, and a switch changes only the workspace you are in.
 - **Consistent across windows.** Every VS Code window reads the same saved state, so a switch in one window holds in the others.
+- **Your limits, for the right account.** Turn on `claudeAccounts.showUsage` to see the 5-hour and weekly usage of the account each window uses.
 
 ## Requirements
 
@@ -65,6 +66,7 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 | `Claude Accounts: Remove Saved Account` | Forget an account and delete its saved tokens.                            |
 | `Claude Accounts: Show Status`          | Show where the live login is, saved accounts, and `claude auth status`.   |
 | `Claude Accounts: Change Switch Scope`  | Choose whether a switch applies everywhere or to the current workspace.   |
+| `Claude Accounts: Toggle Usage`         | Show or hide the window's 5-hour and weekly usage in the status bar.      |
 
 ## Settings
 
@@ -75,6 +77,7 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 | `claudeAccounts.claudePath`          | empty    | Full path to the `claude` CLI. Leave it empty to search `PATH`, Homebrew, npm's global folder, and the native installer location. |
 | `claudeAccounts.syncIntervalMinutes` | `5`      | How often to save refreshed tokens for the active account. `0` turns the timer off.                                               |
 | `claudeAccounts.showStatusBar`       | `true`   | Show the active account in the status bar.                                                                                        |
+| `claudeAccounts.showUsage`           | `false`  | Show the 5-hour and weekly usage of the window's account in the status bar. Asks Anthropic for it at most every two minutes.      |
 | `claudeAccounts.switchScope`         | `global` | Where a switch applies. `global` changes the login everywhere. `workspace` changes it for the current workspace only.             |
 | `claudeAccounts.restartClaudeCode`   | `true`   | Restart extensions when the window changes accounts, so the Claude Code panel uses the new one right away.                        |
 
@@ -93,6 +96,8 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 - **Starting with Claude Code.** The extension starts alongside the Claude Code panel and points it at the workspace's account before Claude Code checks the login.
 - **Restarting Claude Code.** Claude Code checks the login when it starts and keeps the answer. When a switch, a new login, a removal, or a scope change moves the window to another login, the extension restarts the window's extensions. Claude Code starts again on the new login and picks its sessions back up. Turn this off with `claudeAccounts.restartClaudeCode`.
 
+- **Usage.** With `claudeAccounts.showUsage` on, the extension reads the window's live login and asks `api.anthropic.com/api/oauth/usage` for its limits, the endpoint behind Claude Code's `/usage`. It asks at most every two minutes while the window has focus, and waits five minutes after an account is rate limited. It never refreshes a token. After a switch to an account whose token has expired, it checks every 15 seconds and shows usage once Claude Code refreshes the token.
+
 An account left unused past its refresh token's expiry needs a fresh login. The switcher marks those accounts in the picker.
 
 ## Privacy and security
@@ -105,7 +110,8 @@ An account left unused past its refresh token's expiry needs a fresh login. The 
 - A workspace account's folder holds links and, on Linux and Windows, that account's `.credentials.json`. It is readable by your user only. Removing the account deletes the folder and its Keychain item.
 - With `claudeAccounts.switchScope` set to `workspace`, the extension sets `CLAUDE_CONFIG_DIR` for the window's terminals and extensions. The value is a folder path, never a token.
 - Error messages and logs never include token material.
-- The extension itself makes no network requests and collects no telemetry. It runs the `claude` CLI, and on macOS the `security` tool, on your machine.
+- The extension collects no telemetry. It runs the `claude` CLI, and on macOS the `security` tool, on your machine.
+- By default, the extension makes no network requests. With `claudeAccounts.showUsage` on, it sends the window's access token to `api.anthropic.com`, and nowhere else, to read usage. When Node's own request is turned away, it retries with `curl` and passes the token through stdin, never on the command line.
 
 To report a vulnerability, see [SECURITY.md](./.github/SECURITY.md).
 
@@ -150,6 +156,12 @@ It is published to Open VSX, where those editors install extensions from. On mac
 ### Does it work on Linux, Windows, or in a remote window?
 
 Yes. On Linux and Windows it swaps Claude Code's `.credentials.json`. In a Remote SSH, WSL, or container window, the extension runs on the remote machine, where Claude Code runs too, and switches the login there.
+
+### Can it show my usage limits?
+
+Yes. Run `Claude Accounts: Toggle Usage`, or turn on `claudeAccounts.showUsage`. A second status bar item, beside the account, shows the 5-hour and weekly usage, such as `5h 34% · wk 12%`. Its tooltip lists each limit with its reset time. Right-click the status bar to hide either item on its own. It always shows the account the window uses, so each workspace shows its own.
+
+Other usage extensions read a single login, so in a workspace with its own account they show the wrong one, or nothing.
 
 ### What happens when I remove an account?
 

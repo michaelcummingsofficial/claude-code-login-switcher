@@ -26,7 +26,8 @@ export const window = {
 	showInformationMessage: vi.fn<AnyFunction>(async () => undefined),
 	showInputBox: vi.fn<AnyFunction>(async () => undefined),
 	showQuickPick: vi.fn<AnyFunction>(async () => undefined),
-	showWarningMessage: vi.fn<AnyFunction>(async () => undefined)
+	showWarningMessage: vi.fn<AnyFunction>(async () => undefined),
+	state: { focused: true }
 };
 
 export const commands = {

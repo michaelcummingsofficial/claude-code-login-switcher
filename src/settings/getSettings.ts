@@ -12,6 +12,7 @@ export interface Settings {
 	claudePath: string;
 	syncIntervalMinutes: number;
 	showStatusBar: boolean;
+	showUsage: boolean;
 	switchScope: "global" | "workspace";
 	restartClaudeCode: boolean;
 	/** Claude Code's own config folder, whichever account this window uses. Empty means `~/.claude`. */
@@ -34,6 +35,7 @@ export function getSettings(): Settings {
 		claudePath: config.get<string>("claudePath", ""),
 		syncIntervalMinutes: config.get<number>("syncIntervalMinutes", 5),
 		showStatusBar: config.get<boolean>("showStatusBar", true),
+		showUsage: config.get<boolean>("showUsage", false),
 		switchScope: config.get<Settings["switchScope"]>("switchScope", "global"),
 		restartClaudeCode: config.get<boolean>("restartClaudeCode", true),
 		baseConfigDir,

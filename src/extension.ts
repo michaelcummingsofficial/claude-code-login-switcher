@@ -7,11 +7,13 @@ import { renameAccount } from "./commands/renameAccount";
 import { saveCurrentAccount } from "./commands/saveCurrentAccount";
 import { showStatus } from "./commands/showStatus";
 import { switchAccount } from "./commands/switchAccount";
+import { toggleUsage } from "./commands/toggleUsage";
 import { createProfileStore } from "./profiles/createProfileStore";
 import type { ProfileStore } from "./profiles/ProfileStore";
 import { syncActiveAccount } from "./profiles/syncActiveAccount";
 import { getSettings } from "./settings/getSettings";
 import { refreshStatusBar } from "./statusBar/refreshStatusBar";
+import { UsageStatusItem } from "./statusBar/UsageStatusItem";
 import { rememberWorkspaceAccount } from "./workspace/rememberWorkspaceAccount";
 import { restoreWorkspaceAccount } from "./workspace/restoreWorkspaceAccount";
 
@@ -22,7 +24,8 @@ const commands: Record<string, (store: ProfileStore) => Promise<unknown>> = {
 	"claudeAccounts.remove": removeAccount,
 	"claudeAccounts.rename": renameAccount,
 	"claudeAccounts.status": showStatus,
-	"claudeAccounts.changeScope": changeSwitchScope
+	"claudeAccounts.changeScope": changeSwitchScope,
+	"claudeAccounts.toggleUsage": toggleUsage
 };
 
 let store: ProfileStore | undefined;
@@ -34,7 +37,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	statusBar.command = "claudeAccounts.switch";
 	const restarter = new ClaudeCodeRestarter(accounts);
-	const refresh = () => refreshStatusBar(statusBar, accounts);
+	const usage = new UsageStatusItem(accounts);
+	const refresh = () => Promise.all([refreshStatusBar(statusBar, accounts), usage.refresh()]);
 	const restoreAccount = () =>
 		restoreWorkspaceAccount(context.environmentVariableCollection, accounts).catch(
 			(error: Error) => void vscode.window.showErrorMessage(error.message)
@@ -49,6 +53,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	context.subscriptions.push(
 		statusBar,
+		usage,
 		{ dispose: stopSyncTimer },
 		...Object.entries(commands).map(([id, command]) =>
 			vscode.commands.registerCommand(id, () =>
