@@ -35,8 +35,16 @@ export const commands = {
 	registerCommand: vi.fn<AnyFunction>(disposable)
 };
 
+export const env = {
+	openExternal: vi.fn<AnyFunction>(async () => true)
+};
+
 export const extensions = {
 	getExtension: vi.fn<AnyFunction>(() => undefined)
+};
+
+export const Uri = {
+	parse: (url: string) => ({ url })
 };
 
 export const workspace = {

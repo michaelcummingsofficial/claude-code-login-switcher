@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { resolveClaudePath } from "../../src/claude/resolveClaudePath";
 import { usePlatform } from "../helpers/usePlatform";
+import { extensions } from "../mocks/vscode";
 
 function existing(...paths: string[]): void {
 	vi.spyOn(fs, "existsSync").mockImplementation((candidate) => paths.includes(String(candidate)));
@@ -56,6 +57,19 @@ describe("resolveClaudePath", () => {
 			existing(path.join(install));
 			expect(resolveClaudePath("   ")).toBe(path.join(install));
 		});
+	});
+
+	it.each([
+		["win32", "claude.exe"],
+		["darwin", "claude"]
+	] as const)("falls back to the CLI bundled with the Claude Code extension on %s", (platform, name) => {
+		usePlatform(platform);
+		vi.stubEnv("PATH", "");
+		const extensionPath = path.join(os.homedir(), ".vscode", "extensions", "anthropic.claude-code-2.1.296");
+		extensions.getExtension.mockImplementation((id: string) => (id === "anthropic.claude-code" ? { extensionPath } : undefined));
+		const bundled = path.join(extensionPath, "resources", "native-binary", name);
+		existing(bundled);
+		expect(resolveClaudePath("")).toBe(bundled);
 	});
 
 	describe("on Windows", () => {

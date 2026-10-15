@@ -125,7 +125,7 @@
 				"claudeAccounts.claudePath": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "Absolute path to the `claude` CLI. Leave empty to detect it."
+					"markdownDescription": "Full path to the `claude` CLI. Leave it empty to find it automatically, including the one inside the Claude Code extension."
 				},
 				"claudeAccounts.syncIntervalMinutes": {
 					"type": "number",

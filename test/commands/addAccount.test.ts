@@ -103,12 +103,12 @@ describe("addAccount", () => {
 		expect(window.showInputBox).not.toHaveBeenCalled();
 	});
 
-	it("shows an error and leaves the active account alone when the CLI is missing", async () => {
+	it("offers a way forward and leaves the active account alone when the CLI is missing", async () => {
 		vi.mocked(resolveClaudePath).mockReturnValue(null);
 		const store = createTempStore();
 		const work = await store.add({ label: "Work" }, "work-tokens");
 		await addAccount(store);
-		expect(window.showErrorMessage).toHaveBeenCalledWith("Could not find the claude CLI. Set claudeAccounts.claudePath to its full path.");
+		expect(window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining("Claude Code was not found"), "Install Claude Code", "Set the path");
 		expect(window.createTerminal).not.toHaveBeenCalled();
 		await expect(store.activeId()).resolves.toBe(work.id);
 	});

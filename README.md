@@ -34,7 +34,7 @@ It works on Linux and Windows too. There, saved logins go in VS Code's encrypted
 ## Requirements
 
 - macOS, Linux, or Windows
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with the `claude` CLI, signed in at least once
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code), signed in at least once. The Claude Code extension is enough, with or without the `claude` CLI installed.
 - VS Code 1.85 or later, or an editor that installs extensions from Open VSX
 
 ## Install
@@ -70,16 +70,16 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 
 ## Settings
 
-| Setting                              | Default  | What it does                                                                                                                      |
-| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `claudeAccounts.claudeConfigDir`     | empty    | Claude Code's config folder. Leave it empty to use `CLAUDE_CONFIG_DIR`, or `~/.claude` when that is not set.                      |
-| `claudeAccounts.keychainService`     | empty    | macOS only. The Keychain item Claude Code reads. Leave it empty to derive the name from the config folder.                        |
-| `claudeAccounts.claudePath`          | empty    | Full path to the `claude` CLI. Leave it empty to search `PATH`, Homebrew, npm's global folder, and the native installer location. |
-| `claudeAccounts.syncIntervalMinutes` | `5`      | How often to save refreshed tokens for the active account. `0` turns the timer off.                                               |
-| `claudeAccounts.showStatusBar`       | `true`   | Show the active account in the status bar.                                                                                        |
-| `claudeAccounts.showUsage`           | `false`  | Show the 5-hour and weekly usage of the window's account in the status bar. Asks Anthropic for it at most every two minutes.      |
-| `claudeAccounts.switchScope`         | `global` | Where a switch applies. `global` changes the login everywhere. `workspace` changes it for the current workspace only.             |
-| `claudeAccounts.restartClaudeCode`   | `true`   | Restart extensions when the window changes accounts, so the Claude Code panel uses the new one right away.                        |
+| Setting                              | Default  | What it does                                                                                                                 |
+| ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `claudeAccounts.claudeConfigDir`     | empty    | Claude Code's config folder. Leave it empty to use `CLAUDE_CONFIG_DIR`, or `~/.claude` when that is not set.                 |
+| `claudeAccounts.keychainService`     | empty    | macOS only. The Keychain item Claude Code reads. Leave it empty to derive the name from the config folder.                   |
+| `claudeAccounts.claudePath`          | empty    | Full path to the `claude` CLI. Leave it empty to search `PATH`, the usual install folders, and the Claude Code extension.    |
+| `claudeAccounts.syncIntervalMinutes` | `5`      | How often to save refreshed tokens for the active account. `0` turns the timer off.                                          |
+| `claudeAccounts.showStatusBar`       | `true`   | Show the active account in the status bar.                                                                                   |
+| `claudeAccounts.showUsage`           | `false`  | Show the 5-hour and weekly usage of the window's account in the status bar. Asks Anthropic for it at most every two minutes. |
+| `claudeAccounts.switchScope`         | `global` | Where a switch applies. `global` changes the login everywhere. `workspace` changes it for the current workspace only.        |
+| `claudeAccounts.restartClaudeCode`   | `true`   | Restart extensions when the window changes accounts, so the Claude Code panel uses the new one right away.                   |
 
 ## How it works
 
