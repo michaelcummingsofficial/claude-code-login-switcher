@@ -29,6 +29,11 @@ describe("UsageMeter", () => {
 		expect(requestUsage).toHaveBeenCalledWith("work-token");
 	});
 
+	it("leaves a login Claude Code has ended unknown, without asking or waiting on a refresh", async () => {
+		await expect(meter.read(JSON.stringify({ claudeAiOauth: { accessToken: "", refreshToken: "", expiresAt: 0 } }))).resolves.toBeNull();
+		expect(requestUsage).not.toHaveBeenCalled();
+	});
+
 	it("asks again only after two minutes, or straight away for another login", async () => {
 		vi.mocked(requestUsage).mockResolvedValue(usage(34));
 		await meter.read(login("work-token"));

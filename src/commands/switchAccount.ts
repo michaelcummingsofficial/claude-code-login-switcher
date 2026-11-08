@@ -1,13 +1,17 @@
 import * as vscode from "vscode";
 import { readAuthStatus } from "../claude/readAuthStatus";
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
+import { loginWarningOf } from "../profiles/loginWarningOf";
 import type { Profile, ProfileStore } from "../profiles/ProfileStore";
 import { syncActiveAccount } from "../profiles/syncActiveAccount";
 import { getSettings } from "../settings/getSettings";
 import { useWorkspaceAccount } from "../workspace/useWorkspaceAccount";
 import { addAccount } from "./addAccount";
 import { changeSwitchScope } from "./changeSwitchScope";
+import { logInAgain } from "./logInAgain";
 import { saveCurrentAccount } from "./saveCurrentAccount";
+
+const LOG_IN_AGAIN = "Log in again";
 
 export async function switchAccount(store: ProfileStore): Promise<void> {
 	await syncActiveAccount(store);
@@ -29,12 +33,13 @@ export async function switchAccount(store: ProfileStore): Promise<void> {
 	const items: (vscode.QuickPickItem & { profile?: Profile; run?: (store: ProfileStore) => Promise<void> })[] = profiles.map((profile) => ({
 		label: profile.id === activeId ? `$(check) ${profile.label}` : profile.label,
 		description: [profile.email, profile.subscriptionType].filter(Boolean).join(" · "),
-		detail: isExpired(profile) ? "Refresh token expired. Log in again to use this account." : undefined,
+		detail: describeWarning(profile),
 		profile
 	}));
 	items.push(
 		{ label: "", kind: vscode.QuickPickItemKind.Separator },
 		{ label: "$(add) Log in to another account", run: addAccount },
+		{ label: "$(refresh) Log in again to a saved account", run: logInAgain },
 		{ label: scoped ? "$(gear) Applies to this workspace only" : "$(gear) Applies everywhere", description: "Change", run: changeSwitchScope }
 	);
 	const picked = await vscode.window.showQuickPick(items, { title: "Switch Claude account", placeHolder: "Pick an account" });
@@ -47,6 +52,12 @@ export async function switchAccount(store: ProfileStore): Promise<void> {
 		return;
 	}
 
+	// A switch to an expired login would leave Claude Code signed out, so picking one logs in to it instead.
+	if (loginWarningOf(picked.profile)?.expired) {
+		await addAccount(store, picked.profile);
+		return;
+	}
+
 	// Until a workspace picks its own account it follows the shared one, so picking that one still pins it here.
 	if (picked.profile.id !== (scoped ? settings.workspaceAccountId : activeId)) {
 		await applyProfile(store, picked.profile, scoped);
@@ -56,7 +67,7 @@ export async function switchAccount(store: ProfileStore): Promise<void> {
 async function applyProfile(store: ProfileStore, profile: Profile, scoped: boolean): Promise<void> {
 	const credentials = await store.credentialsFor(profile.id);
 	if (!credentials) {
-		void vscode.window.showErrorMessage(`Stored credentials for "${profile.label}" are missing. Log in again to re-save it.`);
+		await offerLogin(store, profile, vscode.window.showErrorMessage(`The saved login for "${profile.label}" is missing.`, LOG_IN_AGAIN));
 		return;
 	}
 
@@ -75,7 +86,7 @@ async function applyProfile(store: ProfileStore, profile: Profile, scoped: boole
 	// Asking the CLI proves Claude Code finds the login where the switch put it. A CLI that cannot run proves nothing.
 	const status = await readAuthStatus(getSettings().claudePath);
 	if (status?.loggedIn === false) {
-		void vscode.window.showWarningMessage(`Claude Code does not see a login for "${profile.label}". Log in to it again with Add Account.`);
+		await offerLogin(store, profile, vscode.window.showWarningMessage(`Claude Code does not see a login for "${profile.label}".`, LOG_IN_AGAIN));
 		return;
 	}
 
@@ -86,6 +97,13 @@ async function applyProfile(store: ProfileStore, profile: Profile, scoped: boole
 	);
 }
 
-function isExpired(profile: Profile): boolean {
-	return profile.refreshTokenExpiresAt !== undefined && profile.refreshTokenExpiresAt < Date.now();
+function describeWarning(profile: Profile): string | undefined {
+	const warning = loginWarningOf(profile);
+	return warning && `${warning.message} ${warning.expired ? "Pick it to log in again." : "Log in again to renew it."}`;
+}
+
+async function offerLogin(store: ProfileStore, profile: Profile, choice: Thenable<string | undefined>): Promise<void> {
+	if ((await choice) === LOG_IN_AGAIN) {
+		await addAccount(store, profile);
+	}
 }

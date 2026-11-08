@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
+import { isLoginEnded } from "../profiles/isLoginEnded";
+import { loginWarningOf } from "../profiles/loginWarningOf";
 import type { Profile, ProfileStore } from "../profiles/ProfileStore";
 import { getSettings } from "../settings/getSettings";
 
@@ -13,7 +15,16 @@ export async function refreshStatusBar(statusBar: vscode.StatusBarItem, store: P
 	}
 
 	const active = await store.active();
-	if ((await (await resolveLiveCredential()).read()) === null) {
+	const live = await (await resolveLiveCredential()).read();
+	const warning = active && loginWarningOf(active, live);
+	statusBar.command = "claudeAccounts.switch";
+	statusBar.backgroundColor = undefined;
+	if (active && warning) {
+		statusBar.text = `${LOGO} $(warning) ${active.label}`;
+		statusBar.tooltip = `${warning.message} Click to log in again.\n\n${describeProfile(active)}`;
+		statusBar.command = { title: "Log In Again", command: "claudeAccounts.logInAgain", arguments: [active.id] };
+		statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+	} else if (live === null || isLoginEnded(live)) {
 		statusBar.text = `${LOGO} Claude: signed out`;
 		statusBar.tooltip = "No Claude Code login found. Run Claude Accounts: Add Account.";
 	} else if (active) {
@@ -31,7 +42,7 @@ function describeProfile(profile: Profile): string {
 	const lines = [profile.label, profile.email, profile.orgName, profile.subscriptionType && `plan: ${profile.subscriptionType}`];
 	if (profile.refreshTokenExpiresAt) {
 		const expiry = new Date(profile.refreshTokenExpiresAt);
-		lines.push(expiry.getTime() < Date.now() ? `expired ${expiry.toLocaleString()}` : `valid until ${expiry.toLocaleString()}`);
+		lines.push(expiry.getTime() < Date.now() ? `login expired ${expiry.toLocaleString()}` : `login valid until ${expiry.toLocaleString()}`);
 	}
 
 	return lines.filter(Boolean).join("\n");

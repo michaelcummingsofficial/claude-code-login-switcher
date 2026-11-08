@@ -1,3 +1,4 @@
+import { isLoginEnded } from "../profiles/isLoginEnded";
 import { oauthOf } from "../profiles/oauthOf";
 import { oauthTimestampOf } from "../profiles/oauthTimestampOf";
 import { readUsageWindows, type UsageWindow } from "./readUsageWindows";
@@ -23,7 +24,7 @@ export class UsageMeter {
 
 	read(credentials: string): Promise<UsageReading> {
 		const token = oauthOf(credentials)?.accessToken;
-		if (typeof token !== "string") {
+		if (typeof token !== "string" || isLoginEnded(credentials)) {
 			return Promise.resolve(null);
 		}
 

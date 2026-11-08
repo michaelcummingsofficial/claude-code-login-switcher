@@ -4,6 +4,7 @@ import type { ExtensionContext } from "vscode";
 import { ClaudeCodeRestarter } from "../src/claude/ClaudeCodeRestarter";
 import { addAccount } from "../src/commands/addAccount";
 import { changeSwitchScope } from "../src/commands/changeSwitchScope";
+import { logInAgain } from "../src/commands/logInAgain";
 import { removeAccount } from "../src/commands/removeAccount";
 import { renameAccount } from "../src/commands/renameAccount";
 import { saveCurrentAccount } from "../src/commands/saveCurrentAccount";
@@ -24,6 +25,7 @@ import { commands, StatusBarAlignment, window, workspace } from "./mocks/vscode"
 vi.mock("../src/claude/ClaudeCodeRestarter");
 vi.mock("../src/commands/addAccount");
 vi.mock("../src/commands/changeSwitchScope");
+vi.mock("../src/commands/logInAgain");
 vi.mock("../src/commands/removeAccount");
 vi.mock("../src/commands/renameAccount");
 vi.mock("../src/commands/saveCurrentAccount");
@@ -45,6 +47,7 @@ const handlers = {
 	"claudeAccounts.switch": switchAccount,
 	"claudeAccounts.saveCurrent": saveCurrentAccount,
 	"claudeAccounts.addAccount": addAccount,
+	"claudeAccounts.logInAgain": logInAgain,
 	"claudeAccounts.remove": removeAccount,
 	"claudeAccounts.rename": renameAccount,
 	"claudeAccounts.status": showStatus,
@@ -64,7 +67,7 @@ function registeredIds(): string[] {
 	return commands.registerCommand.mock.calls.map(([id]) => id as string).sort();
 }
 
-function registeredCommand(id: string): () => Promise<void> {
+function registeredCommand(id: string): (...args: unknown[]) => Promise<void> {
 	return commands.registerCommand.mock.calls.find(([registered]) => registered === id)![1];
 }
 
@@ -99,11 +102,10 @@ describe("extension", () => {
 			expect(registeredIds()).toEqual(manifestCommandIds);
 		});
 
-		it("adds a status bar item that opens the switcher", async () => {
+		it("adds a status bar item", async () => {
 			const context = await activateExtension();
 			const statusBar = window.createStatusBarItem.mock.results[0]!.value;
 			expect(window.createStatusBarItem).toHaveBeenCalledWith(StatusBarAlignment.Right, 100);
-			expect(statusBar.command).toBe("claudeAccounts.switch");
 			expect(context.subscriptions).toContain(statusBar);
 		});
 
@@ -136,6 +138,12 @@ describe("extension", () => {
 			expect(handler).toHaveBeenCalledWith(store);
 			expect(rememberWorkspaceAccount).toHaveBeenCalledWith(environment);
 			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
+		});
+
+		it("passes the status bar's arguments on to the command", async () => {
+			await activateExtension();
+			await registeredCommand("claudeAccounts.logInAgain")("work");
+			expect(logInAgain).toHaveBeenCalledWith(store, "work");
 		});
 
 		it("runs every command through the Claude Code restarter, after the window's login is remembered", async () => {

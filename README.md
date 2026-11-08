@@ -27,6 +27,7 @@ It works on Linux and Windows too. There, saved logins go in VS Code's encrypted
 - **Saved logins stay encrypted.** On macOS, each account gets its own Keychain item. On Linux and Windows, accounts go in VS Code's secret storage.
 - **Works where Claude Code does.** macOS, Linux, and Windows, including Remote SSH, WSL, and container windows.
 - **Keeps up with token refreshes.** Claude Code refreshes its tokens as it runs. The extension saves the fresh copy, so you can switch back later without logging in again.
+- **Logging in again takes one click.** Three days before a login expires, the status bar turns yellow. Click it and sign in. The account keeps its name.
 - **One account per workspace, if you want.** Change the switch scope, and a switch changes only the workspace you are in.
 - **Consistent across windows.** Every VS Code window reads the same saved state, so a switch in one window holds in the others.
 - **Your limits, for the right account.** Turn on `claudeAccounts.showUsage` to see the 5-hour and weekly usage of the account each window uses.
@@ -62,6 +63,7 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 | `Claude Accounts: Switch Account`       | Pick a saved account and make it the live login.                          |
 | `Claude Accounts: Save Current Account` | Save whoever is signed in right now.                                      |
 | `Claude Accounts: Add Account (Log In)` | Save the current account, run `claude auth login`, then save the new one. |
+| `Claude Accounts: Log In Again`         | Renew a saved account's expired login. It keeps its name and place.       |
 | `Claude Accounts: Rename Saved Account` | Change an account's name.                                                 |
 | `Claude Accounts: Remove Saved Account` | Forget an account and delete its saved tokens.                            |
 | `Claude Accounts: Show Status`          | Show where the live login is, saved accounts, and `claude auth status`.   |
@@ -98,7 +100,8 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 
 - **Usage.** With `claudeAccounts.showUsage` on, the extension reads the window's live login and asks `api.anthropic.com/api/oauth/usage` for its limits, the endpoint behind Claude Code's `/usage`. It asks at most every two minutes while the window has focus, and waits five minutes after an account is rate limited. It never refreshes a token. After a switch to an account whose token has expired, it checks every 15 seconds and shows usage once Claude Code refreshes the token.
 
-An account left unused past its refresh token's expiry needs a fresh login. The switcher marks those accounts in the picker.
+- **Expiring logins.** Anthropic sets a login's expiry when you sign in, and refreshing doesn't move it. Three days out, the status bar and the picker flag the account. Once Claude Code can no longer refresh a login, it clears the tokens, and the extension flags that too.
+- **Logging in again.** `Claude Accounts: Log In Again`, the yellow status bar, or picking an expired account runs `claude auth login`. The new tokens replace the saved account's own. A login is matched to a saved account by its email and organization, so `Add Account` and `Save Current Account` renew an account they already know instead of saving it twice.
 
 ## Privacy and security
 
@@ -140,6 +143,12 @@ Claude Code stores the signed-in email with its shared settings, so every worksp
 No. The extension restarts the window's extensions, and the Claude Code panel comes back on the new account with its sessions intact. Other extensions restart too, which takes a moment.
 
 A `claude` session running in a terminal keeps its account until you restart it. With `claudeAccounts.restartClaudeCode` turned off, restart the panel's sessions yourself, or run **Developer: Reload Window**.
+
+### Why do I have to log in again?
+
+Every Claude login expires on a date Anthropic sets when you sign in. Claude Code refreshes its short-lived tokens as it runs, but that doesn't extend the login itself. Nothing can keep it alive past that date, so the extension warns you three days ahead.
+
+Click the yellow status bar, or run `Claude Accounts: Log In Again`. The account keeps its name, and switching to it works again.
 
 ### Can I sign in with `claude auth login` in a terminal?
 

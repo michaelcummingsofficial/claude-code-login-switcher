@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { pickSavedProfile } from "../../src/profiles/pickSavedProfile";
 import { createTempStore } from "../helpers/createTempStore";
 import { window } from "../mocks/vscode";
@@ -23,6 +23,14 @@ describe("pickSavedProfile", () => {
 			],
 			{ title: "Rename a saved Claude account" }
 		);
+	});
+
+	it("flags an account whose login has expired", async () => {
+		vi.spyOn(Date, "now").mockReturnValue(2_000_000_000_000);
+		const store = createTempStore();
+		await store.add({ label: "Work", refreshTokenExpiresAt: 1_000_000_000_000 }, "work");
+		await pickSavedProfile(store, "Pick");
+		expect(window.showQuickPick.mock.calls[0]![0]).toMatchObject([{ label: "Work", detail: "Login expired." }]);
 	});
 
 	it("returns undefined when the picker is dismissed", async () => {

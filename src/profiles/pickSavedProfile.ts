@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { loginWarningOf } from "./loginWarningOf";
 import type { Profile, ProfileStore } from "./ProfileStore";
 
 /** Resolves `undefined` when nothing is saved or the picker is dismissed. */
@@ -10,7 +11,7 @@ export async function pickSavedProfile(store: ProfileStore, title: string): Prom
 	}
 
 	const picked = await vscode.window.showQuickPick(
-		profiles.map((profile) => ({ label: profile.label, description: profile.email, profile })),
+		profiles.map((profile) => ({ label: profile.label, description: profile.email, detail: loginWarningOf(profile)?.message, profile })),
 		{ title }
 	);
 	return picked?.profile;

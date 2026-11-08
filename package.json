@@ -84,6 +84,11 @@
 				"category": "Claude Accounts"
 			},
 			{
+				"command": "claudeAccounts.logInAgain",
+				"title": "Log In Again",
+				"category": "Claude Accounts"
+			},
+			{
 				"command": "claudeAccounts.remove",
 				"title": "Remove Saved Account",
 				"category": "Claude Accounts"
