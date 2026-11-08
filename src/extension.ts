@@ -16,6 +16,7 @@ import { getSettings } from "./settings/getSettings";
 import { refreshStatusBar } from "./statusBar/refreshStatusBar";
 import { UsageStatusItem } from "./statusBar/UsageStatusItem";
 import { rememberWorkspaceAccount } from "./workspace/rememberWorkspaceAccount";
+import { removeAbandonedLoginDirs } from "./workspace/removeAbandonedLoginDirs";
 import { restoreWorkspaceAccount } from "./workspace/restoreWorkspaceAccount";
 
 /** A command's further arguments come only from the status bar, never from the Command Palette. */
@@ -85,6 +86,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		})
 	);
 	await restoreAccount();
+	void removeAbandonedLoginDirs(accounts).catch((error: Error) => console.error("[claudeAccounts] cleanup failed", error.message));
 	await syncActiveAccount(accounts);
 	await refresh();
 	restartSyncTimer();

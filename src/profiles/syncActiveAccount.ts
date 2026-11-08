@@ -1,5 +1,7 @@
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
 import { detectActiveProfile } from "./detectActiveProfile";
+import { isLaterLogin } from "./isLaterLogin";
+import { isLoginEnded } from "./isLoginEnded";
 import { isSuperseded } from "./isSuperseded";
 import type { Profile, ProfileStore } from "./ProfileStore";
 import { refreshTokenExpiryOf } from "./refreshTokenExpiryOf";
@@ -12,7 +14,8 @@ import { subscriptionTypeOf } from "./subscriptionTypeOf";
  */
 export async function syncActiveAccount(store: ProfileStore): Promise<void> {
 	try {
-		const live = await (await resolveLiveCredential()).read();
+		const liveCredential = await resolveLiveCredential();
+		const live = await liveCredential.read();
 		if (!live) {
 			return;
 		}
@@ -23,8 +26,21 @@ export async function syncActiveAccount(store: ProfileStore): Promise<void> {
 		}
 
 		const saved = await store.credentialsFor(id);
+		if (saved === live) {
+			return;
+		}
+
 		// The same account can be live in a workspace login too. Whichever refreshed last holds the usable tokens.
-		if (saved === live || (saved !== null && isSuperseded(live, saved))) {
+		if (saved !== null && isSuperseded(live, saved)) {
+			/**
+			 * Logging in again from a workspace renews only that workspace's folder. Every other login of the
+			 * account keeps the old sign-in, or stays cleared, and Claude Code asks to sign in there again.
+			 */
+			const replaceable = isLoginEnded(live) || isLaterLogin(saved, live);
+			if (replaceable && (refreshTokenExpiryOf(saved) ?? Infinity) > Date.now()) {
+				await liveCredential.write(saved);
+			}
+
 			return;
 		}
 

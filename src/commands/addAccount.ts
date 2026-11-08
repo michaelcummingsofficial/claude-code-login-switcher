@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { claudeCommand } from "../claude/claudeCommand";
 import { reportMissingClaude } from "../claude/reportMissingClaude";
 import { resolveClaudePath } from "../claude/resolveClaudePath";
+import { waitForLogin } from "../claude/waitForLogin";
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
 import { detectActiveProfile } from "../profiles/detectActiveProfile";
 import { isLoginEnded } from "../profiles/isLoginEnded";
@@ -61,14 +62,14 @@ export async function addAccount(store: ProfileStore, target?: Profile): Promise
 		env: staged ? { CLAUDE_CONFIG_DIR: loginDirFor(store.dir, staged) } : undefined
 	});
 	terminal.show();
-	const done = await vscode.window.showInformationMessage(
+	const loggedIn = await waitForLogin(
+		terminal,
+		live,
 		target
-			? `Finish the login for "${target.label}" in the terminal and browser.${target.email ? ` Sign in as ${target.email}.` : ""}`
-			: "Finish the login in the terminal and browser, then save the new account.",
-		{ modal: true },
-		"I finished logging in"
+			? `Finish logging in to "${target.label}" in your browser.${target.email ? ` Sign in as ${target.email}.` : ""}`
+			: "Finish logging in to Claude in your browser."
 	);
-	const saved = done === "I finished logging in" ? await saveCurrentAccount(store, target) : null;
+	const saved = loggedIn ? await saveCurrentAccount(store, target) : null;
 	if (staged && saved?.id !== staged) {
 		await useWorkspaceAccount(store, saved?.id ?? settings.workspaceAccountId);
 		await removeLoginDir(store.dir, staged);

@@ -8,6 +8,7 @@ import { useLiveCredential } from "../helpers/useLiveCredential";
 vi.mock("../../src/credentials/resolveLiveCredential");
 
 const rotated = '{"claudeAiOauth":{"accessToken":"rotated","refreshTokenExpiresAt":1789000000000}}';
+const ended = '{"claudeAiOauth":{"accessToken":"","refreshToken":"","expiresAt":0}}';
 
 describe("syncActiveAccount", () => {
 	it("does nothing while signed out", async () => {
@@ -70,9 +71,37 @@ describe("syncActiveAccount", () => {
 		const newer = '{"claudeAiOauth":{"accessToken":"newer","expiresAt":2000}}';
 		const store = createTempStore();
 		const work = await store.add({ label: "Work" }, newer);
-		useLiveCredential('{"claudeAiOauth":{"accessToken":"older","expiresAt":1000}}');
+		const live = useLiveCredential('{"claudeAiOauth":{"accessToken":"older","expiresAt":1000}}');
 		await syncActiveAccount(store);
 		await expect(store.credentialsFor(work.id)).resolves.toBe(newer);
+		expect(live.value).toContain("older");
+	});
+
+	it("puts a login renewed in a workspace back into the shared login Claude Code cleared", async () => {
+		const renewed = '{"claudeAiOauth":{"accessToken":"renewed","refreshToken":"r","expiresAt":2000}}';
+		const store = createTempStore();
+		await store.add({ label: "Work" }, renewed);
+		const live = useLiveCredential(ended);
+		await syncActiveAccount(store);
+		expect(live.value).toBe(renewed);
+	});
+
+	it("replaces a login that still works with the account's later sign-in", async () => {
+		const renewed = `{"claudeAiOauth":{"accessToken":"renewed","expiresAt":1000,"refreshTokenExpiresAt":${Date.now() + 9000}}}`;
+		const store = createTempStore();
+		const work = await store.add({ label: "Work" }, renewed);
+		const live = useLiveCredential(`{"claudeAiOauth":{"accessToken":"previous","expiresAt":2000,"refreshTokenExpiresAt":${Date.now() + 5000}}}`);
+		await syncActiveAccount(store);
+		expect(live.value).toBe(renewed);
+		await expect(store.credentialsFor(work.id)).resolves.toBe(renewed);
+	});
+
+	it("leaves a cleared login alone when the saved copy has expired too", async () => {
+		const store = createTempStore();
+		await store.add({ label: "Work" }, `{"claudeAiOauth":{"accessToken":"stale","expiresAt":2000,"refreshTokenExpiresAt":${Date.now() - 1}}}`);
+		const live = useLiveCredential(ended);
+		await syncActiveAccount(store);
+		expect(live.value).toBe(ended);
 	});
 
 	it("records a plan change that arrives with refreshed tokens", async () => {

@@ -18,6 +18,7 @@ import { syncActiveAccount } from "../src/profiles/syncActiveAccount";
 import { refreshStatusBar } from "../src/statusBar/refreshStatusBar";
 import { UsageStatusItem } from "../src/statusBar/UsageStatusItem";
 import { rememberWorkspaceAccount } from "../src/workspace/rememberWorkspaceAccount";
+import { removeAbandonedLoginDirs } from "../src/workspace/removeAbandonedLoginDirs";
 import { restoreWorkspaceAccount } from "../src/workspace/restoreWorkspaceAccount";
 import { useSettings } from "./helpers/useSettings";
 import { commands, StatusBarAlignment, window, workspace } from "./mocks/vscode";
@@ -37,6 +38,7 @@ vi.mock("../src/profiles/syncActiveAccount");
 vi.mock("../src/statusBar/refreshStatusBar");
 vi.mock("../src/statusBar/UsageStatusItem");
 vi.mock("../src/workspace/rememberWorkspaceAccount");
+vi.mock("../src/workspace/removeAbandonedLoginDirs");
 vi.mock("../src/workspace/restoreWorkspaceAccount");
 
 const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -81,6 +83,7 @@ describe("extension", () => {
 		vi.mocked(syncActiveAccount).mockResolvedValue();
 		vi.mocked(refreshStatusBar).mockResolvedValue();
 		vi.mocked(restoreWorkspaceAccount).mockResolvedValue();
+		vi.mocked(removeAbandonedLoginDirs).mockResolvedValue();
 		vi.mocked(ClaudeCodeRestarter.prototype.follow).mockImplementation(async (change) => {
 			await change();
 		});
@@ -122,6 +125,22 @@ describe("extension", () => {
 			});
 			await activateExtension();
 			expect(syncActiveAccount).toHaveBeenCalledTimes(1);
+		});
+
+		it("cleans up abandoned login folders once the workspace's account is restored", async () => {
+			vi.mocked(removeAbandonedLoginDirs).mockImplementation(async () => {
+				expect(restoreWorkspaceAccount).toHaveBeenCalled();
+			});
+			await activateExtension();
+			expect(removeAbandonedLoginDirs).toHaveBeenCalledWith(store);
+		});
+
+		it("logs a failed cleanup without blocking startup", async () => {
+			const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+			vi.mocked(removeAbandonedLoginDirs).mockRejectedValue(new Error('Could not delete Keychain item "x"'));
+			await activateExtension();
+			await vi.waitFor(() => expect(error).toHaveBeenCalledWith("[claudeAccounts] cleanup failed", 'Could not delete Keychain item "x"'));
+			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
 		});
 
 		it("shows why the workspace's account could not be restored and still starts", async () => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readAuthStatus } from "../../src/claude/readAuthStatus";
 import { resolveClaudePath } from "../../src/claude/resolveClaudePath";
+import { waitForLogin } from "../../src/claude/waitForLogin";
 import { addAccount } from "../../src/commands/addAccount";
 import { syncActiveAccount } from "../../src/profiles/syncActiveAccount";
 import { loginDirFor } from "../../src/workspace/loginDirFor";
@@ -15,24 +16,19 @@ import { window } from "../mocks/vscode";
 
 vi.mock("../../src/claude/readAuthStatus");
 vi.mock("../../src/claude/resolveClaudePath");
+vi.mock("../../src/claude/waitForLogin");
 vi.mock("../../src/credentials/resolveLiveCredential");
 vi.mock("../../src/workspace/removeLoginDir");
 vi.mock("../../src/workspace/useWorkspaceAccount");
 
-const FINISHED = "I finished logging in";
-
 let live: FakeLiveCredential;
 let terminal: { show: ReturnType<typeof vi.fn> };
 
-/** Simulates `claude auth login` replacing the live login while the "finished" prompt is open. */
-function loginAs(tokens: string, answer: string | undefined): void {
-	window.showInformationMessage.mockImplementation(async (message: string) => {
-		if (message.startsWith("Finish the login")) {
-			live.value = tokens;
-			return answer;
-		}
-
-		return undefined;
+/** Simulates `claude auth login` replacing the live login while the extension waits. `finished` is how the wait ends. */
+function loginAs(tokens: string, finished = true): void {
+	vi.mocked(waitForLogin).mockImplementation(async () => {
+		live.value = tokens;
+		return finished;
 	});
 }
 
@@ -49,13 +45,13 @@ describe("addAccount", () => {
 		const store = createTempStore();
 		const work = await store.add({ label: "Work" }, "work-tokens");
 		live.value = "work-tokens";
-		loginAs("personal-tokens", FINISHED);
+		loginAs("personal-tokens");
 		window.showInputBox.mockResolvedValue("Personal");
 		await addAccount(store);
 		expect(window.showWarningMessage).not.toHaveBeenCalled();
 		expect(window.createTerminal).toHaveBeenCalledWith({ name: "Claude login", shellPath: "/opt/homebrew/bin/claude", shellArgs: ["auth", "login"] });
 		expect(terminal.show).toHaveBeenCalled();
-		expect(window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining("Finish the login"), { modal: true }, FINISHED);
+		expect(waitForLogin).toHaveBeenCalledWith(terminal, "work-tokens", "Finish logging in to Claude in your browser.");
 		const personal = await store.active();
 		expect(personal).toMatchObject({ label: "Personal" });
 		await expect(store.credentialsFor(personal!.id)).resolves.toBe("personal-tokens");
@@ -66,15 +62,11 @@ describe("addAccount", () => {
 		const store = createTempStore();
 		const work = await store.add({ label: "Work", email: "ada@work.com" }, "work-tokens");
 		live.value = '{"claudeAiOauth":{"accessToken":"","refreshToken":""}}';
-		loginAs("work-renewed", FINISHED);
+		loginAs("work-renewed");
 		vi.mocked(readAuthStatus).mockResolvedValue({ loggedIn: true, email: "ada@work.com" });
 		await addAccount(store, work);
 		expect(window.showWarningMessage).not.toHaveBeenCalled();
-		expect(window.showInformationMessage).toHaveBeenCalledWith(
-			'Finish the login for "Work" in the terminal and browser. Sign in as ada@work.com.',
-			{ modal: true },
-			FINISHED
-		);
+		expect(waitForLogin).toHaveBeenCalledWith(terminal, expect.any(String), 'Finish logging in to "Work" in your browser. Sign in as ada@work.com.');
 		expect(window.showInputBox).not.toHaveBeenCalled();
 		await expect(store.list()).resolves.toHaveLength(1);
 		await expect(store.credentialsFor(work.id)).resolves.toBe("work-renewed");
@@ -105,19 +97,19 @@ describe("addAccount", () => {
 		const store = createTempStore();
 		const work = await store.add({ label: "Work" }, "work-tokens");
 		live.value = "work-tokens";
-		window.showInformationMessage.mockImplementation(async () => {
+		vi.mocked(waitForLogin).mockImplementation(async () => {
 			live.value = "personal-tokens";
 			await syncActiveAccount(store);
-			return undefined;
+			return false;
 		});
 		await addAccount(store);
 		await expect(store.credentialsFor(work.id)).resolves.toBe("work-tokens");
 		await expect(store.activeId()).resolves.toBeNull();
 	});
 
-	it("does not save when the login prompt is dismissed", async () => {
+	it("does not save when the login is cancelled", async () => {
 		const store = createTempStore();
-		loginAs("personal-tokens", undefined);
+		loginAs("personal-tokens", false);
 		await addAccount(store);
 		await expect(store.list()).resolves.toEqual([]);
 		expect(window.showInputBox).not.toHaveBeenCalled();
@@ -153,7 +145,7 @@ describe("addAccount", () => {
 			const store = createTempStore();
 			window.showWarningMessage.mockResolvedValue("Save it first");
 			window.showInputBox.mockResolvedValueOnce("Old account").mockResolvedValueOnce("New account");
-			loginAs("new-tokens", FINISHED);
+			loginAs("new-tokens");
 			await addAccount(store);
 			const [old, added] = await store.list();
 			await expect(store.credentialsFor(old!.id)).resolves.toBe("unsaved-tokens");
@@ -188,7 +180,7 @@ describe("addAccount", () => {
 			usePlatform("darwin");
 			const store = createTempStore();
 			const work = await store.add({ label: "Work" }, "work-tokens");
-			loginAs("personal-tokens", FINISHED);
+			loginAs("personal-tokens");
 			window.showInputBox.mockResolvedValue("Personal");
 			await addAccount(store);
 			expect(window.createTerminal).toHaveBeenCalledWith({
@@ -213,7 +205,7 @@ describe("addAccount", () => {
 
 		it("returns to the shared login and deletes the folder when the login is abandoned", async () => {
 			const store = createTempStore();
-			loginAs("personal-tokens", undefined);
+			loginAs("personal-tokens", false);
 			await addAccount(store);
 			await expect(store.list()).resolves.toEqual([]);
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, undefined);
@@ -231,9 +223,9 @@ describe("addAccount", () => {
 		it("logs in again to a saved account in a folder of its own, then moves to that account", async () => {
 			const store = createTempStore();
 			const work = await store.add({ label: "Work" }, "work-tokens");
-			loginAs("work-renewed", FINISHED);
+			loginAs("work-renewed");
 			await addAccount(store, work);
-			expect(window.showInformationMessage).toHaveBeenCalledWith('Finish the login for "Work" in the terminal and browser.', { modal: true }, FINISHED);
+			expect(waitForLogin).toHaveBeenCalledWith(terminal, null, 'Finish logging in to "Work" in your browser.');
 			await expect(store.credentialsFor(work.id)).resolves.toBe("work-renewed");
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, work.id);
 			expect(removeLoginDir).toHaveBeenCalledWith(store.dir, stagedId());
@@ -242,7 +234,7 @@ describe("addAccount", () => {
 		it("moves to the saved account when the login turns out to be one already saved", async () => {
 			const store = createTempStore();
 			const work = await store.add({ label: "Work" }, "work-tokens");
-			loginAs("work-tokens", FINISHED);
+			loginAs("work-tokens");
 			await addAccount(store);
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, work.id);
 			expect(removeLoginDir).toHaveBeenCalledWith(store.dir, stagedId());

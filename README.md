@@ -102,6 +102,9 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 
 - **Expiring logins.** Anthropic sets a login's expiry when you sign in, and refreshing doesn't move it. Three days out, the status bar and the picker flag the account. Once Claude Code can no longer refresh a login, it clears the tokens, and the extension flags that too.
 - **Logging in again.** `Claude Accounts: Log In Again`, the yellow status bar, or picking an expired account runs `claude auth login`. The new tokens replace the saved account's own. A login is matched to a saved account by its email and organization, so `Add Account` and `Save Current Account` renew an account they already know instead of saving it twice.
+- **Finishing a login.** While `claude auth login` runs, a notification shows a spinner and checks for the new login every few seconds. Once it lands, the account is saved. There is nothing to click.
+- **Renewing from a workspace.** A login renewed in one workspace reaches every other login of that account, including the shared one. Each picks it up the next time it syncs, so you sign in once.
+- **Abandoned logins.** A login that was cancelled or interrupted can leave a folder under `logins` that no account owns. When a window starts, the extension deletes any that have sat unchanged for an hour, along with their Keychain items.
 
 ## Privacy and security
 
@@ -110,7 +113,7 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 - The live login on Linux and Windows is Claude Code's own `.credentials.json`. The extension replaces it in a single step and keeps it readable by your user only, the same way Claude Code does.
 - On macOS, tokens reach the `security` tool through stdin, which keeps them out of the process list. Credentials longer than 4,032 characters use the hex argument form instead, the same way Claude Code does.
 - `profiles.json` and its folder are readable by your user only.
-- A workspace account's folder holds links and, on Linux and Windows, that account's `.credentials.json`. It is readable by your user only. Removing the account deletes the folder and its Keychain item.
+- A workspace account's folder holds links and, on Linux and Windows, that account's `.credentials.json`. It is readable by your user only. Removing the account deletes the folder and its Keychain item. So does a login left unfinished.
 - With `claudeAccounts.switchScope` set to `workspace`, the extension sets `CLAUDE_CONFIG_DIR` for the window's terminals and extensions. The value is a folder path, never a token.
 - Error messages and logs never include token material.
 - The extension collects no telemetry. It runs the `claude` CLI, and on macOS the `security` tool, on your machine.

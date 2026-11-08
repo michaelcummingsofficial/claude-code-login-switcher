@@ -10,6 +10,13 @@ describe("isSuperseded", () => {
 		expect(isSuperseded(login(1000), login(1000))).toBe(false);
 	});
 
+	it("prefers a later sign-in over an older one that refreshed more recently", () => {
+		const renewed = JSON.stringify({ claudeAiOauth: { expiresAt: 1000, refreshTokenExpiresAt: 9000 } });
+		const previous = JSON.stringify({ claudeAiOauth: { expiresAt: 2000, refreshTokenExpiresAt: 5000 } });
+		expect(isSuperseded(previous, renewed)).toBe(true);
+		expect(isSuperseded(renewed, previous)).toBe(false);
+	});
+
 	it("treats a copy without an expiry as the oldest", () => {
 		expect(isSuperseded("work-tokens", login(1000))).toBe(true);
 		expect(isSuperseded(login(1000), "work-tokens")).toBe(false);

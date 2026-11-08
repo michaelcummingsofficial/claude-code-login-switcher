@@ -9,6 +9,8 @@ export const StatusBarAlignment = { Left: 1, Right: 2 };
 
 export const QuickPickItemKind = { Separator: -1, Default: 0 };
 
+export const ProgressLocation = { SourceControl: 1, Window: 10, Notification: 15 };
+
 export class ThemeColor {
 	constructor(readonly id: string) {}
 }
@@ -26,6 +28,10 @@ export const window = {
 	})),
 	createTerminal: vi.fn<AnyFunction>(() => ({ show: vi.fn(), sendText: vi.fn(), dispose: vi.fn() })),
 	onDidChangeWindowState: vi.fn<AnyFunction>(disposable),
+	onDidCloseTerminal: vi.fn<AnyFunction>(disposable),
+	withProgress: vi.fn<AnyFunction>(async (_options, task) =>
+		task({ report: vi.fn() }, { isCancellationRequested: false, onCancellationRequested: vi.fn<AnyFunction>(disposable) })
+	),
 	showErrorMessage: vi.fn<AnyFunction>(async () => undefined),
 	showInformationMessage: vi.fn<AnyFunction>(async () => undefined),
 	showInputBox: vi.fn<AnyFunction>(async () => undefined),
