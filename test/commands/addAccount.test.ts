@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readAuthStatus } from "../../src/claude/readAuthStatus";
 import { resolveClaudePath } from "../../src/claude/resolveClaudePath";
 import { addAccount } from "../../src/commands/addAccount";
 import { syncActiveAccount } from "../../src/profiles/syncActiveAccount";
@@ -59,6 +60,25 @@ describe("addAccount", () => {
 		expect(personal).toMatchObject({ label: "Personal" });
 		await expect(store.credentialsFor(personal!.id)).resolves.toBe("personal-tokens");
 		await expect(store.credentialsFor(work.id)).resolves.toBe("work-tokens");
+	});
+
+	it("logs in again to a saved account whose login ended, keeping its name and place", async () => {
+		const store = createTempStore();
+		const work = await store.add({ label: "Work", email: "ada@work.com" }, "work-tokens");
+		live.value = '{"claudeAiOauth":{"accessToken":"","refreshToken":""}}';
+		loginAs("work-renewed", FINISHED);
+		vi.mocked(readAuthStatus).mockResolvedValue({ loggedIn: true, email: "ada@work.com" });
+		await addAccount(store, work);
+		expect(window.showWarningMessage).not.toHaveBeenCalled();
+		expect(window.showInformationMessage).toHaveBeenCalledWith(
+			'Finish the login for "Work" in the terminal and browser. Sign in as ada@work.com.',
+			{ modal: true },
+			FINISHED
+		);
+		expect(window.showInputBox).not.toHaveBeenCalled();
+		await expect(store.list()).resolves.toHaveLength(1);
+		await expect(store.credentialsFor(work.id)).resolves.toBe("work-renewed");
+		await expect(store.activeId()).resolves.toBe(work.id);
 	});
 
 	it("starts npm's claude.cmd through cmd.exe on Windows", async () => {
@@ -206,6 +226,17 @@ describe("addAccount", () => {
 			redirectConfigDir(loginDirFor(store.dir, work.id));
 			await addAccount(store);
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, work.id);
+		});
+
+		it("logs in again to a saved account in a folder of its own, then moves to that account", async () => {
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, "work-tokens");
+			loginAs("work-renewed", FINISHED);
+			await addAccount(store, work);
+			expect(window.showInformationMessage).toHaveBeenCalledWith('Finish the login for "Work" in the terminal and browser.', { modal: true }, FINISHED);
+			await expect(store.credentialsFor(work.id)).resolves.toBe("work-renewed");
+			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, work.id);
+			expect(removeLoginDir).toHaveBeenCalledWith(store.dir, stagedId());
 		});
 
 		it("moves to the saved account when the login turns out to be one already saved", async () => {

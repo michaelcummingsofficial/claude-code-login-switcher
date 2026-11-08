@@ -5,7 +5,8 @@ import { reportMissingClaude } from "../claude/reportMissingClaude";
 import { resolveClaudePath } from "../claude/resolveClaudePath";
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
 import { detectActiveProfile } from "../profiles/detectActiveProfile";
-import type { ProfileStore } from "../profiles/ProfileStore";
+import { isLoginEnded } from "../profiles/isLoginEnded";
+import type { Profile, ProfileStore } from "../profiles/ProfileStore";
 import { syncActiveAccount } from "../profiles/syncActiveAccount";
 import { getSettings } from "../settings/getSettings";
 import { loginDirFor } from "../workspace/loginDirFor";
@@ -19,13 +20,15 @@ import { saveCurrentAccount } from "./saveCurrentAccount";
  *
  * A workspace login has nothing to overwrite: the new account signs in to a folder of its own, named with the
  * id it is then saved under.
+ *
+ * `target` is a saved account to log in to again, which keeps its name and place instead of being saved anew.
  */
-export async function addAccount(store: ProfileStore): Promise<void> {
+export async function addAccount(store: ProfileStore, target?: Profile): Promise<void> {
 	await syncActiveAccount(store);
 	const settings = getSettings();
 	const staged = settings.switchScope === "workspace" ? randomUUID() : undefined;
 	const live = staged ? null : await (await resolveLiveCredential()).read();
-	if (live && !(await detectActiveProfile(store, live))) {
+	if (live && !isLoginEnded(live) && !(await detectActiveProfile(store, live))) {
 		const choice = await vscode.window.showWarningMessage(
 			"The account currently signed in is not saved. Logging in will overwrite it.",
 			{ modal: true },
@@ -59,11 +62,13 @@ export async function addAccount(store: ProfileStore): Promise<void> {
 	});
 	terminal.show();
 	const done = await vscode.window.showInformationMessage(
-		"Finish the login in the terminal and browser, then save the new account.",
+		target
+			? `Finish the login for "${target.label}" in the terminal and browser.${target.email ? ` Sign in as ${target.email}.` : ""}`
+			: "Finish the login in the terminal and browser, then save the new account.",
 		{ modal: true },
 		"I finished logging in"
 	);
-	const saved = done === "I finished logging in" ? await saveCurrentAccount(store) : null;
+	const saved = done === "I finished logging in" ? await saveCurrentAccount(store, target) : null;
 	if (staged && saved?.id !== staged) {
 		await useWorkspaceAccount(store, saved?.id ?? settings.workspaceAccountId);
 		await removeLoginDir(store.dir, staged);

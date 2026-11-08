@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ClaudeCodeRestarter } from "./claude/ClaudeCodeRestarter";
 import { addAccount } from "./commands/addAccount";
 import { changeSwitchScope } from "./commands/changeSwitchScope";
+import { logInAgain } from "./commands/logInAgain";
 import { removeAccount } from "./commands/removeAccount";
 import { renameAccount } from "./commands/renameAccount";
 import { saveCurrentAccount } from "./commands/saveCurrentAccount";
@@ -17,10 +18,12 @@ import { UsageStatusItem } from "./statusBar/UsageStatusItem";
 import { rememberWorkspaceAccount } from "./workspace/rememberWorkspaceAccount";
 import { restoreWorkspaceAccount } from "./workspace/restoreWorkspaceAccount";
 
-const commands: Record<string, (store: ProfileStore) => Promise<unknown>> = {
+/** A command's further arguments come only from the status bar, never from the Command Palette. */
+const commands: Record<string, (store: ProfileStore, ...args: unknown[]) => Promise<unknown>> = {
 	"claudeAccounts.switch": switchAccount,
-	"claudeAccounts.saveCurrent": saveCurrentAccount,
-	"claudeAccounts.addAccount": addAccount,
+	"claudeAccounts.saveCurrent": (accounts) => saveCurrentAccount(accounts),
+	"claudeAccounts.addAccount": (accounts) => addAccount(accounts),
+	"claudeAccounts.logInAgain": logInAgain,
 	"claudeAccounts.remove": removeAccount,
 	"claudeAccounts.rename": renameAccount,
 	"claudeAccounts.status": showStatus,
@@ -35,7 +38,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const accounts = createProfileStore(context);
 	store = accounts;
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-	statusBar.command = "claudeAccounts.switch";
 	const restarter = new ClaudeCodeRestarter(accounts);
 	const usage = new UsageStatusItem(accounts);
 	const refresh = () => Promise.all([refreshStatusBar(statusBar, accounts), usage.refresh()]);
@@ -56,10 +58,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		usage,
 		{ dispose: stopSyncTimer },
 		...Object.entries(commands).map(([id, command]) =>
-			vscode.commands.registerCommand(id, () =>
+			vscode.commands.registerCommand(id, (...args: unknown[]) =>
 				restarter.follow(async () => {
 					try {
-						await command(accounts);
+						await command(accounts, ...args);
 					} catch (error) {
 						void vscode.window.showErrorMessage((error as Error).message);
 					}

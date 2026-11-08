@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readAuthStatus } from "../../src/claude/readAuthStatus";
 import { addAccount } from "../../src/commands/addAccount";
 import { changeSwitchScope } from "../../src/commands/changeSwitchScope";
+import { logInAgain } from "../../src/commands/logInAgain";
 import { saveCurrentAccount } from "../../src/commands/saveCurrentAccount";
 import { switchAccount } from "../../src/commands/switchAccount";
 import { redirectConfigDir } from "../../src/workspace/redirectConfigDir";
@@ -13,6 +14,7 @@ import { QuickPickItemKind, window } from "../mocks/vscode";
 
 vi.mock("../../src/commands/addAccount");
 vi.mock("../../src/commands/changeSwitchScope");
+vi.mock("../../src/commands/logInAgain");
 vi.mock("../../src/commands/saveCurrentAccount");
 vi.mock("../../src/claude/readAuthStatus");
 vi.mock("../../src/credentials/resolveLiveCredential");
@@ -49,19 +51,22 @@ describe("switchAccount", () => {
 		});
 	});
 
-	it("lists accounts with the active one checked, expired ones flagged, and a login entry", async () => {
+	it("lists accounts with the active one checked, expiring ones flagged, and the login entries", async () => {
 		vi.spyOn(Date, "now").mockReturnValue(2_000_000_000_000);
 		const store = createTempStore();
 		await store.add({ label: "Work", email: "ada@work.com", subscriptionType: "team", refreshTokenExpiresAt: 1_000_000_000_000 }, "work-tokens");
+		await store.add({ label: "Studio", refreshTokenExpiresAt: 2_000_000_000_000 + 86_400_000 }, "studio-tokens");
 		await store.add({ label: "Personal", subscriptionType: "pro", refreshTokenExpiresAt: 3_000_000_000_000 }, "personal-tokens");
 		await switchAccount(store);
 		const [items, options] = window.showQuickPick.mock.calls[0]!;
 		expect(options).toEqual({ title: "Switch Claude account", placeHolder: "Pick an account" });
 		expect(items).toMatchObject([
-			{ label: "Work", description: "ada@work.com · team", detail: "Refresh token expired. Log in again to use this account." },
+			{ label: "Work", description: "ada@work.com · team", detail: "Login expired. Pick it to log in again." },
+			{ label: "Studio", description: "", detail: "Login expires in 1 day. Log in again to renew it." },
 			{ label: "$(check) Personal", description: "pro", detail: undefined },
 			{ label: "", kind: QuickPickItemKind.Separator },
 			{ label: "$(add) Log in to another account" },
+			{ label: "$(refresh) Log in again to a saved account" },
 			{ label: "$(gear) Applies everywhere", description: "Change" }
 		]);
 	});
@@ -79,6 +84,25 @@ describe("switchAccount", () => {
 		pick("Log in to another account");
 		await switchAccount(store);
 		expect(addAccount).toHaveBeenCalledWith(store);
+	});
+
+	it("starts a login to a saved account from the picker", async () => {
+		const store = createTempStore();
+		await store.add({ label: "Work" }, "work-tokens");
+		pick("Log in again to a saved account");
+		await switchAccount(store);
+		expect(logInAgain).toHaveBeenCalledWith(store);
+	});
+
+	it("logs in to an expired account when it is picked, instead of switching to a dead login", async () => {
+		vi.spyOn(Date, "now").mockReturnValue(2_000_000_000_000);
+		const store = createTempStore();
+		const work = await store.add({ label: "Work", refreshTokenExpiresAt: 1_000_000_000_000 }, "work-tokens");
+		await store.add({ label: "Personal" }, "personal-tokens");
+		pick("Work");
+		await switchAccount(store);
+		expect(addAccount).toHaveBeenCalledWith(store, work);
+		expect(live.value).toBeNull();
 	});
 
 	it("opens the scope picker from the entry that names the current scope", async () => {
@@ -139,8 +163,20 @@ describe("switchAccount", () => {
 		await store.add({ label: "Personal" }, "personal-tokens");
 		pick("Work");
 		await switchAccount(store);
-		expect(window.showWarningMessage).toHaveBeenCalledWith('Claude Code does not see a login for "Work". Log in to it again with Add Account.');
+		expect(window.showWarningMessage).toHaveBeenCalledWith('Claude Code does not see a login for "Work".', "Log in again");
 		expect(window.showInformationMessage).not.toHaveBeenCalled();
+		expect(addAccount).not.toHaveBeenCalled();
+	});
+
+	it("logs in to the account again when asked, after Claude Code does not see its login", async () => {
+		vi.mocked(readAuthStatus).mockResolvedValue({ loggedIn: false });
+		window.showWarningMessage.mockResolvedValue("Log in again");
+		const store = createTempStore();
+		const work = await store.add({ label: "Work" }, "work-tokens");
+		await store.add({ label: "Personal" }, "personal-tokens");
+		pick("Work");
+		await switchAccount(store);
+		expect(addAccount).toHaveBeenCalledWith(store, work);
 	});
 
 	it("reports missing saved credentials without switching", async () => {
@@ -148,9 +184,11 @@ describe("switchAccount", () => {
 		await store.add({ label: "Work" }, "work-tokens");
 		const personal = await store.add({ label: "Personal" }, "personal-tokens");
 		vi.spyOn(store, "credentialsFor").mockResolvedValue(null);
+		window.showErrorMessage.mockResolvedValue("Log in again");
 		pick("Work");
 		await switchAccount(store);
-		expect(window.showErrorMessage).toHaveBeenCalledWith('Stored credentials for "Work" are missing. Log in again to re-save it.');
+		expect(window.showErrorMessage).toHaveBeenCalledWith('The saved login for "Work" is missing.', "Log in again");
+		expect(addAccount).toHaveBeenCalledWith(store, expect.objectContaining({ label: "Work" }));
 		await expect(store.activeId()).resolves.toBe(personal.id);
 	});
 

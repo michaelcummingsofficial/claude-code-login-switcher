@@ -9,6 +9,10 @@ export const StatusBarAlignment = { Left: 1, Right: 2 };
 
 export const QuickPickItemKind = { Separator: -1, Default: 0 };
 
+export class ThemeColor {
+	constructor(readonly id: string) {}
+}
+
 export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 };
 
 export const window = {
