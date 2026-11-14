@@ -67,6 +67,20 @@ describe("ensureLoginDir", () => {
 		expect(fs.lstatSync(path.join(dir, ".credentials.json")).isSymbolicLink()).toBe(false);
 	});
 
+	it("heals a folder Claude Code recreated without links, moving its history home", async () => {
+		write(path.join(base, ".claude.json"), "shared-config");
+		write(path.join(base, "projects", "repo", "old.jsonl"), "old");
+		const dir = path.join(storeDir, "logins", "work-id");
+		write(path.join(dir, ".claude.json"), "forked-config");
+		write(path.join(dir, "projects", "repo", "new.jsonl"), "new");
+		await ensureLoginDir(storeDir, "work-id");
+		expect(fs.lstatSync(path.join(dir, ".claude.json")).isSymbolicLink()).toBe(true);
+		expect(fs.lstatSync(path.join(dir, "projects")).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(path.join(dir, ".claude.json"), "utf8")).toBe("shared-config");
+		expect(fs.readdirSync(path.join(base, "projects", "repo")).sort()).toEqual(["new.jsonl", "old.jsonl"]);
+		expect(fs.readdirSync(path.join(storeDir, "removed", "work-id"))).toHaveLength(1);
+	});
+
 	it("leaves a link alone once its shared file is gone", async () => {
 		write(path.join(base, "settings.json"), "{}");
 		const dir = await ensureLoginDir(storeDir, "work-id");

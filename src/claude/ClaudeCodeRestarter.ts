@@ -1,10 +1,13 @@
 import * as vscode from "vscode";
+import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
+import { isLoginEnded } from "../profiles/isLoginEnded";
 import type { ProfileStore } from "../profiles/ProfileStore";
 import { getSettings } from "../settings/getSettings";
 
 interface Login {
 	dir: string | undefined;
 	account: string | null;
+	signedIn: boolean;
 }
 
 /**
@@ -29,20 +32,27 @@ export class ClaudeCodeRestarter {
 		const after = await this.login();
 		// Saving the login in use, or removing its account, moves the active account to or from none. The tokens stay put.
 		const switched = before.account !== null && after.account !== null && before.account !== after.account;
+		// Claude Code keeps its sign-in screen up after a login lands behind it, such as one renewed from the status bar.
+		const signedBackIn = !before.signedIn && after.signedIn;
 		// A settings change and the command that made it can both see the same switch, and one restart covers both.
-		if (this.restarting || (before.dir === after.dir && !switched)) {
+		if (this.restarting || (before.dir === after.dir && !switched && !signedBackIn)) {
 			return;
 		}
 
 		this.restarting = true;
-		try {
-			await vscode.commands.executeCommand("workbench.action.restartExtensionHost");
-		} finally {
+		const done = () => {
 			this.restarting = false;
-		}
+		};
+
+		/**
+		 * The command that made the change answers first. A restart while it is still running takes its answer down with
+		 * the extension host, and VS Code reports the click as "Canceled".
+		 */
+		setTimeout(() => void vscode.commands.executeCommand("workbench.action.restartExtensionHost").then(done, done));
 	}
 
 	private async login(): Promise<Login> {
-		return { dir: process.env.CLAUDE_CONFIG_DIR, account: await this.store.activeId() };
+		const live = await (await resolveLiveCredential()).read().catch(() => null);
+		return { dir: process.env.CLAUDE_CONFIG_DIR, account: await this.store.activeId(), signedIn: live !== null && !isLoginEnded(live) };
 	}
 }

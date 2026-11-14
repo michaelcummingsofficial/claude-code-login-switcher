@@ -5,6 +5,7 @@ import { changeSwitchScope } from "../../src/commands/changeSwitchScope";
 import { logInAgain } from "../../src/commands/logInAgain";
 import { saveCurrentAccount } from "../../src/commands/saveCurrentAccount";
 import { switchAccount } from "../../src/commands/switchAccount";
+import { newestLoginOf } from "../../src/workspace/newestLoginOf";
 import { redirectConfigDir } from "../../src/workspace/redirectConfigDir";
 import { useWorkspaceAccount } from "../../src/workspace/useWorkspaceAccount";
 import { createTempStore } from "../helpers/createTempStore";
@@ -18,6 +19,7 @@ vi.mock("../../src/commands/logInAgain");
 vi.mock("../../src/commands/saveCurrentAccount");
 vi.mock("../../src/claude/readAuthStatus");
 vi.mock("../../src/credentials/resolveLiveCredential");
+vi.mock("../../src/workspace/newestLoginOf");
 vi.mock("../../src/workspace/useWorkspaceAccount");
 
 let live: FakeLiveCredential;
@@ -231,12 +233,33 @@ describe("switchAccount", () => {
 			expect(window.showQuickPick.mock.calls[0]![0].at(-1)).toMatchObject({ label: "$(gear) Applies to this workspace only" });
 		});
 
-		it("pins the shared account here when it is picked before the workspace has its own", async () => {
+		it("does nothing when the shared account is picked in a workspace that follows it", async () => {
 			const store = createTempStore();
-			const work = await store.add({ label: "Work" }, "work-tokens");
+			await store.add({ label: "Work" }, "work-tokens");
 			pick("Work");
 			await switchAccount(store);
-			expect(useWorkspaceAccount).toHaveBeenCalledWith(store, work.id);
+			expect(useWorkspaceAccount).not.toHaveBeenCalled();
+		});
+
+		it("returns a workspace with its own account to the shared one when that is picked", async () => {
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, "work-tokens");
+			const personal = await store.add({ label: "Personal" }, "personal-tokens");
+			redirectConfigDir(`/accounts/logins/${work.id}`);
+			pick("Personal");
+			await switchAccount(store);
+			expect(useWorkspaceAccount).toHaveBeenCalledWith(store, personal.id);
+		});
+
+		it("says which account workspaces without their own follow", async () => {
+			const store = createTempStore();
+			await store.add({ label: "Work" }, "work-tokens");
+			await store.add({ label: "Personal" }, "personal-tokens");
+			await switchAccount(store);
+			expect(window.showQuickPick.mock.calls[0]![0].slice(0, 2)).toMatchObject([
+				{ label: "Work", detail: undefined },
+				{ label: "$(check) Personal", detail: "Shared by every workspace without its own account." }
+			]);
 		});
 
 		it("does nothing when the workspace's own account is picked", async () => {
@@ -251,10 +274,89 @@ describe("switchAccount", () => {
 		it("reports a failed switch", async () => {
 			const store = createTempStore();
 			await store.add({ label: "Work" }, "work-tokens");
+			await store.add({ label: "Personal" }, "personal-tokens");
 			vi.mocked(useWorkspaceAccount).mockRejectedValue(new Error("Windows blocked the links"));
 			pick("Work");
 			await switchAccount(store);
 			expect(window.showErrorMessage).toHaveBeenCalledWith("Could not switch account: Windows blocked the links");
+		});
+	});
+
+	describe("signing an account in everywhere", () => {
+		beforeEach(() => {
+			useSettings({ switchScope: "workspace" });
+			vi.mocked(useWorkspaceAccount).mockImplementation(async (_store, id) => {
+				if (!id) {
+					redirectConfigDir(undefined);
+				}
+			});
+		});
+
+		it("is offered in the picker only when a switch applies to one workspace", async () => {
+			const store = createTempStore();
+			await store.add({ label: "Work" }, "work-tokens");
+			await switchAccount(store);
+			useSettings({});
+			await switchAccount(store);
+			const [scoped, global] = window.showQuickPick.mock.calls.map(([items]) => items.map((item: { label: string }) => item.label));
+			expect(scoped).toContain("$(globe) Use an account everywhere");
+			expect(global).not.toContain("$(globe) Use an account everywhere");
+		});
+
+		it("opens a picker of accounts alone, with the shared login's account checked", async () => {
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, "work-tokens");
+			await store.add({ label: "Personal" }, "personal-tokens");
+			redirectConfigDir(`/accounts/logins/${work.id}`);
+			window.showQuickPick.mockImplementationOnce(async (items: { label: string }[]) => items.find((item) => item.label.endsWith("everywhere")));
+			await switchAccount(store);
+			const [items, options] = window.showQuickPick.mock.calls[1]!;
+			expect(options).toEqual({ title: "Use a Claude account everywhere", placeHolder: "Pick an account" });
+			expect(items.map((item: { label: string }) => item.label)).toEqual(["Work", "$(check) Personal"]);
+		});
+
+		it("points this workspace at the account's own login and notes it for every other workspace, copying no tokens", async () => {
+			vi.spyOn(Date, "now").mockReturnValue(7000);
+			const store = createTempStore();
+			await store.add({ label: "Work" }, "work-tokens");
+			const personal = await store.add({ label: "Personal" }, "personal-tokens");
+			const studio = await store.add({ label: "Studio" }, "studio-tokens");
+			await store.setActive(personal.id);
+			live.value = "personal-tokens";
+			pick("Studio");
+			const write = vi.spyOn(live, "write");
+			await switchAccount(store, true);
+			expect(useWorkspaceAccount).toHaveBeenCalledWith(store, studio.id);
+			expect(write).not.toHaveBeenCalled();
+			await expect(store.sharedId()).resolves.toBe(personal.id);
+			expect(store.snapshot().everywhere).toEqual({ id: studio.id, at: 7000 });
+			expect(window.showInformationMessage).toHaveBeenCalledWith('Switched every workspace to "Studio". Open windows follow when you go back to them.');
+		});
+
+		it("still notes the account when this workspace already uses it, so the others follow", async () => {
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, "work-tokens");
+			await store.add({ label: "Personal" }, "personal-tokens");
+			redirectConfigDir(`/accounts/logins/${work.id}`);
+			pick("Work");
+			await switchAccount(store, true);
+			expect(store.snapshot().everywhere?.id).toBe(work.id);
+			expect(useWorkspaceAccount).toHaveBeenCalledWith(store, work.id);
+		});
+
+		it("switches the shared login itself when one account applies everywhere, taking a newer login from the account's folder", async () => {
+			useSettings({});
+			vi.mocked(newestLoginOf).mockResolvedValue("work-refreshed");
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, "work-tokens");
+			await store.add({ label: "Personal" }, "personal-tokens");
+			pick("Work");
+			await switchAccount(store);
+			expect(newestLoginOf).toHaveBeenCalledWith(store, work.id);
+			expect(live.value).toBe("work-refreshed");
+			await expect(store.sharedId()).resolves.toBe(work.id);
+			expect(store.snapshot().everywhere).toBeUndefined();
+			expect(useWorkspaceAccount).not.toHaveBeenCalled();
 		});
 	});
 });

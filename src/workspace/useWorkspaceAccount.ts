@@ -4,12 +4,20 @@ import type { ProfileStore } from "../profiles/ProfileStore";
 import { getSettings } from "../settings/getSettings";
 import { ensureLoginDir } from "./ensureLoginDir";
 import { loginDirFor } from "./loginDirFor";
+import { newestLoginOf } from "./newestLoginOf";
 import { redirectConfigDir } from "./redirectConfigDir";
 
-/** Points this window at the login of the saved account `id`. `undefined` goes back to the login every window shares. */
+/**
+ * Points this window at the login of the saved account `id`. `undefined` goes back to the login every window shares,
+ * and so does the account that login belongs to: each account's login lives in one place, never two.
+ */
 export async function useWorkspaceAccount(store: ProfileStore, id: string | undefined): Promise<void> {
-	if (!id) {
+	if (!id || id === (await store.sharedId())) {
 		redirectConfigDir(undefined);
+		if (id) {
+			await catchUpSharedLogin(store, id);
+		}
+
 		return;
 	}
 
@@ -26,5 +34,15 @@ export async function useWorkspaceAccount(store: ProfileStore, id: string | unde
 	} catch (error) {
 		redirectConfigDir(previous && loginDirFor(store.dir, previous));
 		throw error;
+	}
+}
+
+/** A login renewed into the saved copy, or a folder an older version gave the account, may be newer than the shared login. */
+async function catchUpSharedLogin(store: ProfileStore, id: string): Promise<void> {
+	const shared = await resolveLiveCredential();
+	const current = await shared.read();
+	const newest = await newestLoginOf(store, id, current);
+	if (newest && newest !== current) {
+		await shared.write(newest);
 	}
 }

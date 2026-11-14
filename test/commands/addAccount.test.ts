@@ -6,7 +6,6 @@ import { addAccount } from "../../src/commands/addAccount";
 import { syncActiveAccount } from "../../src/profiles/syncActiveAccount";
 import { loginDirFor } from "../../src/workspace/loginDirFor";
 import { redirectConfigDir } from "../../src/workspace/redirectConfigDir";
-import { removeLoginDir } from "../../src/workspace/removeLoginDir";
 import { useWorkspaceAccount } from "../../src/workspace/useWorkspaceAccount";
 import { createTempStore } from "../helpers/createTempStore";
 import { type FakeLiveCredential, useLiveCredential } from "../helpers/useLiveCredential";
@@ -18,7 +17,6 @@ vi.mock("../../src/claude/readAuthStatus");
 vi.mock("../../src/claude/resolveClaudePath");
 vi.mock("../../src/claude/waitForLogin");
 vi.mock("../../src/credentials/resolveLiveCredential");
-vi.mock("../../src/workspace/removeLoginDir");
 vi.mock("../../src/workspace/useWorkspaceAccount");
 
 let live: FakeLiveCredential;
@@ -168,32 +166,31 @@ describe("addAccount", () => {
 	});
 
 	describe("when a switch applies to this workspace only", () => {
-		/** The id of the folder the login was pointed at. */
-		const stagedId = () => vi.mocked(useWorkspaceAccount).mock.calls[0]![1]!;
-
 		beforeEach(() => {
 			useSettings({ switchScope: "workspace" });
 			vi.mocked(useWorkspaceAccount).mockImplementation(async (store, id) => redirectConfigDir(id && loginDirFor(store.dir, id)));
 		});
 
-		it("logs in to a folder of its own and saves the account under that folder's id", async () => {
+		it("logs in to the folder kept for a new account and saves the account under that folder's id", async () => {
 			usePlatform("darwin");
 			const store = createTempStore();
 			const work = await store.add({ label: "Work" }, "work-tokens");
+			const pending = await store.pendingLoginId();
 			loginAs("personal-tokens");
 			window.showInputBox.mockResolvedValue("Personal");
 			await addAccount(store);
+			expect(useWorkspaceAccount).toHaveBeenNthCalledWith(1, store, pending);
 			expect(window.createTerminal).toHaveBeenCalledWith({
 				name: "Claude login",
 				shellPath: "/opt/homebrew/bin/claude",
 				shellArgs: ["auth", "login"],
-				env: { CLAUDE_CONFIG_DIR: loginDirFor(store.dir, stagedId()) }
+				env: { CLAUDE_CONFIG_DIR: loginDirFor(store.dir, pending) }
 			});
-			await expect(store.active()).resolves.toMatchObject({ id: stagedId(), label: "Personal" });
-			expect(useWorkspaceAccount).toHaveBeenCalledTimes(1);
-			expect(removeLoginDir).not.toHaveBeenCalled();
+			await expect(store.active()).resolves.toMatchObject({ id: pending, label: "Personal" });
+			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, pending);
 			redirectConfigDir(undefined);
 			await expect(store.activeId()).resolves.toBe(work.id);
+			await expect(store.pendingLoginId()).resolves.not.toBe(pending);
 		});
 
 		it("does not warn about the shared login, which the new one cannot overwrite", async () => {
@@ -203,13 +200,14 @@ describe("addAccount", () => {
 			expect(window.createTerminal).toHaveBeenCalled();
 		});
 
-		it("returns to the shared login and deletes the folder when the login is abandoned", async () => {
+		it("keeps the folder for the next try when the login is abandoned, and returns to the shared login", async () => {
 			const store = createTempStore();
+			const pending = await store.pendingLoginId();
 			loginAs("personal-tokens", false);
 			await addAccount(store);
 			await expect(store.list()).resolves.toEqual([]);
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, undefined);
-			expect(removeLoginDir).toHaveBeenCalledWith(store.dir, stagedId());
+			await expect(store.pendingLoginId()).resolves.toBe(pending);
 		});
 
 		it("returns to the workspace's previous account when the login is abandoned", async () => {
@@ -220,15 +218,26 @@ describe("addAccount", () => {
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, work.id);
 		});
 
-		it("logs in again to a saved account in a folder of its own, then moves to that account", async () => {
+		it("logs in again where the saved account's login already lives, then uses it here", async () => {
 			const store = createTempStore();
+			await store.add({ label: "Personal" }, "personal-tokens");
 			const work = await store.add({ label: "Work" }, "work-tokens");
+			live.value = "work-ended";
 			loginAs("work-renewed");
 			await addAccount(store, work);
-			expect(waitForLogin).toHaveBeenCalledWith(terminal, null, 'Finish logging in to "Work" in your browser.');
+			expect(useWorkspaceAccount).toHaveBeenNthCalledWith(1, store, work.id);
+			expect(waitForLogin).toHaveBeenCalledWith(terminal, "work-ended", 'Finish logging in to "Work" in your browser.');
 			await expect(store.credentialsFor(work.id)).resolves.toBe("work-renewed");
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, work.id);
-			expect(removeLoginDir).toHaveBeenCalledWith(store.dir, stagedId());
+		});
+
+		it("opens the login terminal on the shared login when that is where the account lives", async () => {
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, "work-tokens");
+			vi.mocked(useWorkspaceAccount).mockImplementation(async () => redirectConfigDir(undefined));
+			await addAccount(store, work);
+			expect(window.createTerminal).toHaveBeenCalledWith(expect.objectContaining({ env: { CLAUDE_CONFIG_DIR: null } }));
+			await expect(store.activeId()).resolves.toBe(work.id);
 		});
 
 		it("moves to the saved account when the login turns out to be one already saved", async () => {
@@ -237,7 +246,6 @@ describe("addAccount", () => {
 			loginAs("work-tokens");
 			await addAccount(store);
 			expect(useWorkspaceAccount).toHaveBeenLastCalledWith(store, work.id);
-			expect(removeLoginDir).toHaveBeenCalledWith(store.dir, stagedId());
 		});
 	});
 });

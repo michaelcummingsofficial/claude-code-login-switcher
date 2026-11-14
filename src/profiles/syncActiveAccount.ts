@@ -44,6 +44,12 @@ export async function syncActiveAccount(store: ProfileStore): Promise<void> {
 			return;
 		}
 
+		// Refreshing never moves a login's expiry, so a later one is a sign-in the extension did not make, maybe as someone else.
+		if (saved !== null && isLaterLogin(live, saved)) {
+			await store.setActive(null);
+			return;
+		}
+
 		const patch: Partial<Profile> = { refreshTokenExpiresAt: refreshTokenExpiryOf(live) };
 		const subscriptionType = subscriptionTypeOf(live);
 		// Claude Code records the plan with the tokens, so an upgrade shows up here without a new login.

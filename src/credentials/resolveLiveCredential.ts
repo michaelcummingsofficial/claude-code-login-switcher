@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import path from "node:path";
+import { serviceForConfigDir } from "../keychain/serviceForConfigDir";
 import { getSettings } from "../settings/getSettings";
 import { CredentialsFile } from "./CredentialsFile";
 import { KeychainCredential } from "./KeychainCredential";
@@ -14,16 +16,16 @@ export interface LiveCredential {
 /**
  * Claude Code keeps its login in the Keychain on macOS and in `.credentials.json` everywhere else. A Mac also
  * falls back to that file when the Keychain rejects a write, such as over SSH, so the file wins there only
- * when no Keychain item exists.
+ * when no Keychain item exists. `configDir` asks about that config folder's login instead of this window's.
  */
-export async function resolveLiveCredential(): Promise<LiveCredential> {
+export async function resolveLiveCredential(configDir?: string): Promise<LiveCredential> {
 	const settings = getSettings();
-	const file = new CredentialsFile(settings.credentialsFile);
+	const file = new CredentialsFile(configDir ? path.join(configDir, ".credentials.json") : settings.credentialsFile);
 	if (process.platform !== "darwin") {
 		return file;
 	}
 
-	const keychain = new KeychainCredential(settings.keychainService);
+	const keychain = new KeychainCredential(configDir ? serviceForConfigDir(configDir) : settings.keychainService);
 	if ((await keychain.read()) === null && fs.existsSync(file.location)) {
 		return file;
 	}

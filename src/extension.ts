@@ -9,19 +9,23 @@ import { saveCurrentAccount } from "./commands/saveCurrentAccount";
 import { showStatus } from "./commands/showStatus";
 import { switchAccount } from "./commands/switchAccount";
 import { toggleUsage } from "./commands/toggleUsage";
+import { useAccountEverywhere } from "./commands/useAccountEverywhere";
 import { createProfileStore } from "./profiles/createProfileStore";
 import type { ProfileStore } from "./profiles/ProfileStore";
 import { syncActiveAccount } from "./profiles/syncActiveAccount";
 import { getSettings } from "./settings/getSettings";
 import { refreshStatusBar } from "./statusBar/refreshStatusBar";
 import { UsageStatusItem } from "./statusBar/UsageStatusItem";
+import { everywhereAccountFor } from "./workspace/everywhereAccountFor";
+import { healLoginDirs } from "./workspace/healLoginDirs";
+import { redirectListeners } from "./workspace/redirectListeners";
 import { rememberWorkspaceAccount } from "./workspace/rememberWorkspaceAccount";
-import { removeAbandonedLoginDirs } from "./workspace/removeAbandonedLoginDirs";
 import { restoreWorkspaceAccount } from "./workspace/restoreWorkspaceAccount";
 
 /** A command's further arguments come only from the status bar, never from the Command Palette. */
 const commands: Record<string, (store: ProfileStore, ...args: unknown[]) => Promise<unknown>> = {
-	"claudeAccounts.switch": switchAccount,
+	"claudeAccounts.switch": (accounts) => switchAccount(accounts),
+	"claudeAccounts.useEverywhere": useAccountEverywhere,
 	"claudeAccounts.saveCurrent": (accounts) => saveCurrentAccount(accounts),
 	"claudeAccounts.addAccount": (accounts) => addAccount(accounts),
 	"claudeAccounts.logInAgain": logInAgain,
@@ -42,10 +46,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const restarter = new ClaudeCodeRestarter(accounts);
 	const usage = new UsageStatusItem(accounts);
 	const refresh = () => Promise.all([refreshStatusBar(statusBar, accounts), usage.refresh()]);
-	const restoreAccount = () =>
-		restoreWorkspaceAccount(context.environmentVariableCollection, accounts).catch(
-			(error: Error) => void vscode.window.showErrorMessage(error.message)
-		);
+	const restoreAccount = () => restoreWorkspaceAccount(context, accounts).catch((error: Error) => void vscode.window.showErrorMessage(error.message));
+	// New terminals read the redirect from VS Code's collection, so it has to change before a command opens one.
+	const remember = () => rememberWorkspaceAccount(context);
+	redirectListeners.add(remember);
 	const restartSyncTimer = () => {
 		stopSyncTimer();
 		const minutes = getSettings().syncIntervalMinutes;
@@ -58,6 +62,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		statusBar,
 		usage,
 		{ dispose: stopSyncTimer },
+		{ dispose: () => redirectListeners.delete(remember) },
 		...Object.entries(commands).map(([id, command]) =>
 			vscode.commands.registerCommand(id, (...args: unknown[]) =>
 				restarter.follow(async () => {
@@ -67,7 +72,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 						void vscode.window.showErrorMessage((error as Error).message);
 					}
 
-					rememberWorkspaceAccount(context.environmentVariableCollection);
 					await refresh();
 				})
 			)
@@ -78,15 +82,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				void restarter.follow(() => restoreAccount().then(refresh));
 			}
 		}),
-		// Another window may have switched accounts while this one was in the background.
+		// Another window may have switched accounts, or signed one in everywhere, while this one was in the background.
 		vscode.window.onDidChangeWindowState((state) => {
 			if (state.focused) {
-				void refresh();
+				void (everywhereAccountFor(context, accounts) ? restarter.follow(() => restoreAccount().then(refresh)) : refresh());
 			}
 		})
 	);
 	await restoreAccount();
-	void removeAbandonedLoginDirs(accounts).catch((error: Error) => console.error("[claudeAccounts] cleanup failed", error.message));
+	void healLoginDirs(accounts).catch((error: Error) => console.error("[claudeAccounts] cleanup failed", error.message));
 	await syncActiveAccount(accounts);
 	await refresh();
 	restartSyncTimer();

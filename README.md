@@ -58,17 +58,18 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 
 ## Commands
 
-| Command                                 | What it does                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------- |
-| `Claude Accounts: Switch Account`       | Pick a saved account and make it the live login.                          |
-| `Claude Accounts: Save Current Account` | Save whoever is signed in right now.                                      |
-| `Claude Accounts: Add Account (Log In)` | Save the current account, run `claude auth login`, then save the new one. |
-| `Claude Accounts: Log In Again`         | Renew a saved account's expired login. It keeps its name and place.       |
-| `Claude Accounts: Rename Saved Account` | Change an account's name.                                                 |
-| `Claude Accounts: Remove Saved Account` | Forget an account and delete its saved tokens.                            |
-| `Claude Accounts: Show Status`          | Show where the live login is, saved accounts, and `claude auth status`.   |
-| `Claude Accounts: Change Switch Scope`  | Choose whether a switch applies everywhere or to the current workspace.   |
-| `Claude Accounts: Toggle Usage`         | Show or hide the window's 5-hour and weekly usage in the status bar.      |
+| Command                                   | What it does                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| `Claude Accounts: Switch Account`         | Pick a saved account and make it the live login.                          |
+| `Claude Accounts: Use Account Everywhere` | Use one account in every workspace, including ones with their own.        |
+| `Claude Accounts: Save Current Account`   | Save whoever is signed in right now.                                      |
+| `Claude Accounts: Add Account (Log In)`   | Save the current account, run `claude auth login`, then save the new one. |
+| `Claude Accounts: Log In Again`           | Renew a saved account's expired login. It keeps its name and place.       |
+| `Claude Accounts: Rename Saved Account`   | Change an account's name.                                                 |
+| `Claude Accounts: Remove Saved Account`   | Forget an account and delete its saved tokens.                            |
+| `Claude Accounts: Show Status`            | Show where the live login is, saved accounts, and `claude auth status`.   |
+| `Claude Accounts: Change Switch Scope`    | Choose whether a switch applies everywhere or to the current workspace.   |
+| `Claude Accounts: Toggle Usage`           | Show or hide the window's 5-hour and weekly usage in the status bar.      |
 
 ## Settings
 
@@ -93,18 +94,22 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 - **Switching.** The saved login is copied over the live one, and that account becomes active.
 - **Refreshed tokens.** Before every switch, every few minutes, and when VS Code closes, the live login is copied back into the active account. The plan shown for the account is updated from it too.
 - **Workspace accounts.** Claude Code keeps one login per config folder. With `claudeAccounts.switchScope` set to `workspace`, each account gets a folder of its own under `logins/<id>`, beside `profiles.json`. Everything in it links back to your real config folder, except the login. A switch sets `CLAUDE_CONFIG_DIR` to that folder for the workspace's new terminals and for the Claude Code panel.
+- **One account, one login.** Every account's login lives in one place: the shared login, or its own folder. Nothing copies it to a second place, because Claude Code retires the old tokens every time it refreshes and a second copy would soon stop working. The account the shared login belongs to never gets a folder. A workspace that picks it follows the shared login.
+- **Folders are never deleted.** A Claude Code session in another window may still be using one. When a window starts, every folder gets its links back, and anything Claude Code wrote into one moves to your real config folder. A transcript in both places gets the lines it was missing. Any other file your config folder already has is kept under `removed/<id>/<time>` instead of being overwritten.
 - **Workspace logins.** On macOS, Claude Code keeps each folder's login in its own Keychain item, named `Claude Code-credentials-<hash>`. On Linux and Windows, it is the `.credentials.json` inside the folder.
 - **Shared between workspaces.** Two workspaces on the same account use the same folder, so they share one login and its refreshes.
+- **Saved accounts only.** A workspace returns to the shared login when its account is removed.
+- **Everywhere at once.** `Use Account Everywhere` notes the account and the time in `profiles.json`. It copies no tokens: each workspace points at the account's own login. VS Code remembers when each workspace last picked an account. One that picked before then, or never, follows the next time its window has focus. A window already on that account doesn't restart.
 - **Starting with Claude Code.** The extension starts alongside the Claude Code panel and points it at the workspace's account before Claude Code checks the login.
-- **Restarting Claude Code.** Claude Code checks the login when it starts and keeps the answer. When a switch, a new login, a removal, or a scope change moves the window to another login, the extension restarts the window's extensions. Claude Code starts again on the new login and picks its sessions back up. Turn this off with `claudeAccounts.restartClaudeCode`.
+- **Restarting Claude Code.** Claude Code checks the login when it starts and keeps the answer. When a switch, a new login, a removal, or a scope change moves the window to another login, the extension restarts the window's extensions. So does a login that lands while Claude Code is signed out, which clears its sign-in screen. Claude Code starts again on the new login and picks its sessions back up. Turn this off with `claudeAccounts.restartClaudeCode`.
 
 - **Usage.** With `claudeAccounts.showUsage` on, the extension reads the window's live login and asks `api.anthropic.com/api/oauth/usage` for its limits, the endpoint behind Claude Code's `/usage`. It asks at most every two minutes while the window has focus, and waits five minutes after an account is rate limited. It never refreshes a token. After a switch to an account whose token has expired, it checks every 15 seconds and shows usage once Claude Code refreshes the token.
 
 - **Expiring logins.** Anthropic sets a login's expiry when you sign in, and refreshing doesn't move it. Three days out, the status bar and the picker flag the account. Once Claude Code can no longer refresh a login, it clears the tokens, and the extension flags that too.
 - **Logging in again.** `Claude Accounts: Log In Again`, the yellow status bar, or picking an expired account runs `claude auth login`. The new tokens replace the saved account's own. A login is matched to a saved account by its email and organization, so `Add Account` and `Save Current Account` renew an account they already know instead of saving it twice.
 - **Finishing a login.** While `claude auth login` runs, a notification shows a spinner and checks for the new login every few seconds. Once it lands, the account is saved. There is nothing to click.
-- **Renewing from a workspace.** A login renewed in one workspace reaches every other login of that account, including the shared one. Each picks it up the next time it syncs, so you sign in once.
-- **Abandoned logins.** A login that was cancelled or interrupted can leave a folder under `logins` that no account owns. When a window starts, the extension deletes any that have sat unchanged for an hour, along with their Keychain items.
+- **Logging in again in a workspace.** A saved account signs in again where its login already lives, so every workspace using it gets the new login at once. A new account signs in to a folder of its own. A cancelled login keeps that folder for the next try.
+- **Sign-ins from elsewhere.** A sign-in the extension didn't start, such as `claude auth login` in a terminal, is never saved over the active account. The status bar shows it as unsaved until you save it.
 
 ## Privacy and security
 
@@ -113,7 +118,8 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 - The live login on Linux and Windows is Claude Code's own `.credentials.json`. The extension replaces it in a single step and keeps it readable by your user only, the same way Claude Code does.
 - On macOS, tokens reach the `security` tool through stdin, which keeps them out of the process list. Credentials longer than 4,032 characters use the hex argument form instead, the same way Claude Code does.
 - `profiles.json` and its folder are readable by your user only.
-- A workspace account's folder holds links and, on Linux and Windows, that account's `.credentials.json`. It is readable by your user only. Removing the account deletes the folder and its Keychain item. So does a login left unfinished.
+- A workspace account's folder holds links and, on Linux and Windows, that account's `.credentials.json`. It is readable by your user only. Removing the account deletes its saved tokens. Its folder and the login inside it stay, so a session still running there keeps working.
+- Files Claude Code wrote into a folder move to your config folder. Ones that would overwrite a file there go to `removed/<id>/<time>` beside `profiles.json`, readable by your user only. The extension never deletes them.
 - With `claudeAccounts.switchScope` set to `workspace`, the extension sets `CLAUDE_CONFIG_DIR` for the window's terminals and extensions. The value is a folder path, never a token.
 - Error messages and logs never include token material.
 - The extension collects no telemetry. It runs the `claude` CLI, and on macOS the `security` tool, on your machine.
@@ -129,7 +135,9 @@ Yes. Every account shares the same `~/.claude`. Only the login changes.
 
 ### Can each repo use a different account?
 
-Yes. Run `Claude Accounts: Change Switch Scope` and pick "One account per workspace", or use the last entry in the switch picker. Then switch as usual. The account applies to that workspace only, and VS Code remembers it. A workspace that has not picked an account follows the shared login.
+Yes. Run `Claude Accounts: Change Switch Scope` and pick "One account per workspace", or use the last entry in the switch picker. Then switch as usual. The account applies to that workspace only, and VS Code remembers it. A workspace that has not picked an account follows the shared login, and so does one that picks the shared login's account.
+
+To put one account on every workspace for a while, run `Claude Accounts: Use Account Everywhere`, or pick "Use an account everywhere" in the switch picker. Each open window follows when you go back to it, and one already on that account stays as it is. Pick a workspace's own account again whenever you like.
 
 History, projects, settings, skills, plugins, and MCP servers stay shared. Three things to know:
 
@@ -155,7 +163,7 @@ Click the yellow status bar, or run `Claude Accounts: Log In Again`. The account
 
 ### Can I sign in with `claude auth login` in a terminal?
 
-Use `Claude Accounts: Add Account (Log In)` instead. The extension can't tell accounts apart by their tokens alone, so it syncs a login it didn't start into whichever account was active. If that happens, remove that saved account and add both accounts again.
+You can, but `Claude Accounts: Add Account (Log In)` saves the account for you. A sign-in the extension didn't start could be any account, so it is never saved over the active one. The status bar shows `Claude: unsaved` instead. Run `Claude Accounts: Save Current Account`. A login to an account you already saved renews it, matched by its email.
 
 ### Does it work with `CLAUDE_CONFIG_DIR`?
 
@@ -177,7 +185,7 @@ Other usage extensions read a single login, so in a workspace with its own accou
 
 ### What happens when I remove an account?
 
-Its saved tokens are deleted. The live login is left alone, so you stay signed in. A workspace that used the account goes back to the shared login.
+Its saved tokens are deleted. The live login is left alone, so you stay signed in. A workspace that used the account goes back to the shared login. Its login folder stays, along with any session still running in it, and history from its workspaces stays in your config folder.
 
 ## Contributing
 

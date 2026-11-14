@@ -1,14 +1,14 @@
+import fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { removeAccount } from "../../src/commands/removeAccount";
 import { resolveLiveCredential } from "../../src/credentials/resolveLiveCredential";
+import { loginDirFor } from "../../src/workspace/loginDirFor";
 import { redirectConfigDir } from "../../src/workspace/redirectConfigDir";
-import { removeLoginDir } from "../../src/workspace/removeLoginDir";
 import { useWorkspaceAccount } from "../../src/workspace/useWorkspaceAccount";
 import { createTempStore } from "../helpers/createTempStore";
 import { window } from "../mocks/vscode";
 
 vi.mock("../../src/credentials/resolveLiveCredential");
-vi.mock("../../src/workspace/removeLoginDir");
 vi.mock("../../src/workspace/useWorkspaceAccount");
 
 describe("removeAccount", () => {
@@ -45,13 +45,14 @@ describe("removeAccount", () => {
 		expect(useWorkspaceAccount).not.toHaveBeenCalled();
 	});
 
-	it("deletes the login workspaces used for the account", async () => {
+	it("keeps the login folder workspaces used for the account, so a session still running there keeps working", async () => {
 		const store = createTempStore();
 		const work = await store.add({ label: "Work" }, "work-tokens");
+		fs.mkdirSync(loginDirFor(store.dir, work.id), { recursive: true });
 		window.showQuickPick.mockImplementation(async (items) => items[0]);
 		window.showWarningMessage.mockResolvedValue("Remove");
 		await removeAccount(store);
-		expect(removeLoginDir).toHaveBeenCalledWith(store.dir, work.id);
+		expect(fs.existsSync(loginDirFor(store.dir, work.id))).toBe(true);
 	});
 
 	it("returns this window to the shared login when its workspace used the account", async () => {

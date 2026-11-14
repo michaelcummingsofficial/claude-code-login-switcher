@@ -8,6 +8,10 @@ import { memoryVault } from "../helpers/memoryVault";
 const TOKENS = '{"claudeAiOauth":{"accessToken":"sk-ant-oat01-abc","refreshToken":"sk-ant-ort01-def"}}';
 
 describe("ProfileStore", () => {
+	it("reads nothing synchronously before the file exists", () => {
+		expect(createTempStore().snapshot()).toEqual({ sharedId: null, profiles: [] });
+	});
+
 	it("starts empty when there is no file", async () => {
 		const store = createTempStore();
 		await expect(store.list()).resolves.toEqual([]);
@@ -126,6 +130,34 @@ describe("ProfileStore", () => {
 		await expect(windowA.list()).resolves.toEqual([work, personal]);
 	});
 
+	it("notes the account signed in everywhere from any window, without moving the shared login", async () => {
+		vi.spyOn(Date, "now").mockReturnValue(7000);
+		const store = createTempStore();
+		const work = await store.add({ label: "Work" }, TOKENS);
+		const personal = await store.add({ label: "Personal" }, "personal");
+		redirectConfigDir("/accounts/logins/work-id");
+		await store.setEverywhere(work.id);
+		await expect(store.sharedId()).resolves.toBe(personal.id);
+		expect(store.snapshot().everywhere).toEqual({ id: work.id, at: 7000 });
+	});
+
+	it("keeps the id for a new account's login until a login is saved under it", async () => {
+		const store = createTempStore();
+		const pending = await store.pendingLoginId();
+		await expect(store.pendingLoginId()).resolves.toBe(pending);
+		redirectConfigDir(`/accounts/logins/${pending}`);
+		await store.add({ label: "Work" }, TOKENS);
+		redirectConfigDir(undefined);
+		await expect(store.pendingLoginId()).resolves.not.toBe(pending);
+	});
+
+	it("ignores an everywhere note in the wrong shape", async () => {
+		const store = createTempStore();
+		fs.mkdirSync(store.dir, { recursive: true });
+		fs.writeFileSync(store.path, '{"activeId":null,"profiles":[],"everywhere":{"id":5}}');
+		expect(store.snapshot().everywhere).toBeUndefined();
+	});
+
 	describe("in a window redirected to a workspace account", () => {
 		it("answers with that account and leaves the shared active account alone", async () => {
 			const store = createTempStore();
@@ -138,6 +170,14 @@ describe("ProfileStore", () => {
 			await store.add({ label: "Side project" }, "side");
 			redirectConfigDir(undefined);
 			await expect(store.activeId()).resolves.toBe(personal.id);
+		});
+
+		it("still names the account the shared login belongs to", async () => {
+			const store = createTempStore();
+			const work = await store.add({ label: "Work" }, TOKENS);
+			redirectConfigDir("/accounts/logins/personal-id");
+			await expect(store.sharedId()).resolves.toBe(work.id);
+			expect(store.snapshot()).toEqual({ sharedId: work.id, profiles: [work] });
 		});
 
 		it("saves a login made in a new account's folder under that folder's id", async () => {

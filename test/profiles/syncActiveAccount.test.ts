@@ -104,6 +104,16 @@ describe("syncActiveAccount", () => {
 		expect(live.value).toBe(ended);
 	});
 
+	it("never saves a sign-in made outside the extension over the active account, which may be someone else's", async () => {
+		const store = createTempStore();
+		const saved = `{"claudeAiOauth":{"accessToken":"work","refreshTokenExpiresAt":${Date.now() + 5000}}}`;
+		const work = await store.add({ label: "Work" }, saved);
+		useLiveCredential(`{"claudeAiOauth":{"accessToken":"outside","refreshTokenExpiresAt":${Date.now() + 9000}}}`);
+		await syncActiveAccount(store);
+		await expect(store.credentialsFor(work.id)).resolves.toBe(saved);
+		await expect(store.activeId()).resolves.toBeNull();
+	});
+
 	it("records a plan change that arrives with refreshed tokens", async () => {
 		const store = createTempStore();
 		await store.add({ label: "Work", subscriptionType: "pro" }, "work-tokens");

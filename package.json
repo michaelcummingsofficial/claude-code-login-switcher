@@ -2,7 +2,7 @@
 	"name": "claude-code-login-switcher",
 	"displayName": "Claude Code Login & Account Switcher",
 	"description": "Switch between multiple Claude Code accounts from the status bar. Your history stays put, and saved logins stay in secure storage.",
-	"version": "1.4.0",
+	"version": "1.5.0",
 	"publisher": "michaelcummingsofficial",
 	"private": true,
 	"license": "MIT",
@@ -71,6 +71,11 @@
 			{
 				"command": "claudeAccounts.switch",
 				"title": "Switch Account",
+				"category": "Claude Accounts"
+			},
+			{
+				"command": "claudeAccounts.useEverywhere",
+				"title": "Use Account Everywhere",
 				"category": "Claude Accounts"
 			},
 			{
@@ -156,7 +161,7 @@
 					],
 					"enumDescriptions": [
 						"A switch changes the login everywhere.",
-						"A switch changes the login for this workspace only."
+						"A switch changes the login for this workspace only. The shared login's account stays shared."
 					],
 					"default": "global",
 					"markdownDescription": "Where a switch applies. `workspace` gives each workspace its own account, in its terminals and in the Claude Code panel. History, settings, and MCP servers stay shared."

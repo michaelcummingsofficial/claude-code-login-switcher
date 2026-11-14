@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { redirectMarker } from "../../src/settings/redirectMarker";
 import { redirectConfigDir } from "../../src/workspace/redirectConfigDir";
+import { redirectListeners } from "../../src/workspace/redirectListeners";
 
 describe("redirectConfigDir", () => {
 	it("points CLAUDE_CONFIG_DIR at the folder, then clears it again", () => {
@@ -26,5 +27,13 @@ describe("redirectConfigDir", () => {
 		vi.stubEnv("CLAUDE_CONFIG_DIR", "/tmp/cfg");
 		redirectConfigDir(undefined);
 		expect(process.env.CLAUDE_CONFIG_DIR).toBe("/tmp/cfg");
+	});
+
+	it("tells listeners after every change, so new terminals get it before a command opens one", () => {
+		const listener = vi.fn(() => expect(process.env.CLAUDE_CONFIG_DIR).toBe("/accounts/logins/work-id"));
+		redirectListeners.add(listener);
+		redirectConfigDir("/accounts/logins/work-id");
+		redirectListeners.delete(listener);
+		expect(listener).toHaveBeenCalledTimes(1);
 	});
 });

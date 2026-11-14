@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { writeFileAtomic } from "../files/writeFileAtomic";
@@ -25,6 +26,10 @@ interface StoreFile {
 	version: 1;
 	activeId: string | null;
 	profiles: Profile[];
+	/** The account last signed in everywhere, and when, in epoch ms. */
+	everywhere?: { id: string; at: number };
+	/** The folder a login to a new account goes to, kept for the next try when one is cancelled. */
+	pendingLoginId?: string;
 }
 
 /**
@@ -51,7 +56,29 @@ export class ProfileStore {
 	}
 
 	async activeId(): Promise<string | null> {
-		return this.workspaceAccountId() ?? (await this.read()).activeId;
+		return this.workspaceAccountId() ?? (await this.sharedId());
+	}
+
+	/** The account the login every window shares belongs to, even in a window redirected to another. */
+	async sharedId(): Promise<string | null> {
+		return (await this.read()).activeId;
+	}
+
+	/** Reads without yielding, for a restore that has to finish before Claude Code activates alongside it. */
+	snapshot(): { sharedId: string | null; profiles: Profile[]; everywhere?: { id: string; at: number } } {
+		const { activeId, profiles, everywhere } = parse(() => fsSync.readFileSync(this.path, "utf8"));
+		return { sharedId: activeId, profiles, everywhere };
+	}
+
+	/** The id a login to a new account is saved under. The same one comes back until a login uses it. */
+	async pendingLoginId(): Promise<string> {
+		const store = await this.read();
+		if (!store.pendingLoginId) {
+			store.pendingLoginId = randomUUID();
+			await this.write(store);
+		}
+
+		return store.pendingLoginId;
 	}
 
 	async active(): Promise<Profile | null> {
@@ -67,6 +94,10 @@ export class ProfileStore {
 		const created: Profile = { ...profile, id: reserved ? redirected : randomUUID(), savedAt: Date.now() };
 		await this.vault.store(created.id, credentials);
 		store.profiles.push(created);
+		if (store.pendingLoginId === created.id) {
+			delete store.pendingLoginId;
+		}
+
 		if (!redirected) {
 			store.activeId = created.id;
 		}
@@ -104,6 +135,13 @@ export class ProfileStore {
 		await this.write(store);
 	}
 
+	/** Notes that every workspace should use `id`, and when, so each one that picked before then follows it. */
+	async setEverywhere(id: string): Promise<void> {
+		const store = await this.read();
+		store.everywhere = { id, at: Date.now() };
+		await this.write(store);
+	}
+
 	async remove(id: string): Promise<void> {
 		await this.vault.delete(id);
 		const store = await this.read();
@@ -116,19 +154,26 @@ export class ProfileStore {
 	}
 
 	private async read(): Promise<StoreFile> {
-		try {
-			const parsed = JSON.parse(await fs.readFile(this.path, "utf8")) as Partial<StoreFile> | null;
-			return {
-				version: 1,
-				activeId: typeof parsed?.activeId === "string" ? parsed.activeId : null,
-				profiles: Array.isArray(parsed?.profiles) ? parsed.profiles : []
-			};
-		} catch {
-			return { version: 1, activeId: null, profiles: [] };
-		}
+		const text = await fs.readFile(this.path, "utf8").catch(() => "");
+		return parse(() => text);
 	}
 
 	private async write(store: StoreFile): Promise<void> {
 		await writeFileAtomic(this.path, `${JSON.stringify(store, null, 2)}\n`);
+	}
+}
+
+function parse(read: () => string): StoreFile {
+	try {
+		const parsed = JSON.parse(read()) as Partial<StoreFile> | null;
+		return {
+			version: 1,
+			activeId: typeof parsed?.activeId === "string" ? parsed.activeId : null,
+			profiles: Array.isArray(parsed?.profiles) ? parsed.profiles : [],
+			...(typeof parsed?.everywhere?.id === "string" && typeof parsed.everywhere.at === "number" && { everywhere: parsed.everywhere }),
+			...(typeof parsed?.pendingLoginId === "string" && { pendingLoginId: parsed.pendingLoginId })
+		};
+	} catch {
+		return { version: 1, activeId: null, profiles: [] };
 	}
 }

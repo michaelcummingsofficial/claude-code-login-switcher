@@ -11,14 +11,18 @@ import { saveCurrentAccount } from "../src/commands/saveCurrentAccount";
 import { showStatus } from "../src/commands/showStatus";
 import { switchAccount } from "../src/commands/switchAccount";
 import { toggleUsage } from "../src/commands/toggleUsage";
+import { useAccountEverywhere } from "../src/commands/useAccountEverywhere";
 import { activate, deactivate } from "../src/extension";
 import { createProfileStore } from "../src/profiles/createProfileStore";
 import type { ProfileStore } from "../src/profiles/ProfileStore";
 import { syncActiveAccount } from "../src/profiles/syncActiveAccount";
 import { refreshStatusBar } from "../src/statusBar/refreshStatusBar";
 import { UsageStatusItem } from "../src/statusBar/UsageStatusItem";
+import { everywhereAccountFor } from "../src/workspace/everywhereAccountFor";
+import { healLoginDirs } from "../src/workspace/healLoginDirs";
+import { redirectConfigDir } from "../src/workspace/redirectConfigDir";
+import { redirectListeners } from "../src/workspace/redirectListeners";
 import { rememberWorkspaceAccount } from "../src/workspace/rememberWorkspaceAccount";
-import { removeAbandonedLoginDirs } from "../src/workspace/removeAbandonedLoginDirs";
 import { restoreWorkspaceAccount } from "../src/workspace/restoreWorkspaceAccount";
 import { useSettings } from "./helpers/useSettings";
 import { commands, StatusBarAlignment, window, workspace } from "./mocks/vscode";
@@ -33,12 +37,14 @@ vi.mock("../src/commands/saveCurrentAccount");
 vi.mock("../src/commands/showStatus");
 vi.mock("../src/commands/switchAccount");
 vi.mock("../src/commands/toggleUsage");
+vi.mock("../src/commands/useAccountEverywhere");
 vi.mock("../src/profiles/createProfileStore");
 vi.mock("../src/profiles/syncActiveAccount");
 vi.mock("../src/statusBar/refreshStatusBar");
 vi.mock("../src/statusBar/UsageStatusItem");
+vi.mock("../src/workspace/everywhereAccountFor");
+vi.mock("../src/workspace/healLoginDirs");
 vi.mock("../src/workspace/rememberWorkspaceAccount");
-vi.mock("../src/workspace/removeAbandonedLoginDirs");
 vi.mock("../src/workspace/restoreWorkspaceAccount");
 
 const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -54,13 +60,18 @@ const handlers = {
 	"claudeAccounts.rename": renameAccount,
 	"claudeAccounts.status": showStatus,
 	"claudeAccounts.changeScope": changeSwitchScope,
-	"claudeAccounts.toggleUsage": toggleUsage
+	"claudeAccounts.toggleUsage": toggleUsage,
+	"claudeAccounts.useEverywhere": useAccountEverywhere
 };
 const store = { path: "/accounts/profiles.json" } as ProfileStore;
-const environment = { get: vi.fn(), replace: vi.fn(), delete: vi.fn() };
+let context: ExtensionContext;
 
 async function activateExtension(): Promise<ExtensionContext> {
-	const context = { subscriptions: [] as { dispose(): unknown }[], environmentVariableCollection: environment } as unknown as ExtensionContext;
+	context = {
+		subscriptions: [] as { dispose(): unknown }[],
+		environmentVariableCollection: { get: vi.fn(), replace: vi.fn(), delete: vi.fn() },
+		workspaceState: { get: vi.fn(), update: vi.fn() }
+	} as unknown as ExtensionContext;
 	await activate(context);
 	return context;
 }
@@ -83,7 +94,7 @@ describe("extension", () => {
 		vi.mocked(syncActiveAccount).mockResolvedValue();
 		vi.mocked(refreshStatusBar).mockResolvedValue();
 		vi.mocked(restoreWorkspaceAccount).mockResolvedValue();
-		vi.mocked(removeAbandonedLoginDirs).mockResolvedValue();
+		vi.mocked(healLoginDirs).mockResolvedValue();
 		vi.mocked(ClaudeCodeRestarter.prototype.follow).mockImplementation(async (change) => {
 			await change();
 		});
@@ -91,6 +102,7 @@ describe("extension", () => {
 
 	afterEach(async () => {
 		await deactivate();
+		redirectListeners.clear();
 		vi.useRealTimers();
 	});
 
@@ -121,23 +133,23 @@ describe("extension", () => {
 
 		it("restores the workspace's account before the first sync", async () => {
 			vi.mocked(syncActiveAccount).mockImplementation(async () => {
-				expect(restoreWorkspaceAccount).toHaveBeenCalledWith(environment, store);
+				expect(restoreWorkspaceAccount).toHaveBeenCalledWith(context, store);
 			});
 			await activateExtension();
 			expect(syncActiveAccount).toHaveBeenCalledTimes(1);
 		});
 
-		it("cleans up abandoned login folders once the workspace's account is restored", async () => {
-			vi.mocked(removeAbandonedLoginDirs).mockImplementation(async () => {
+		it("heals login folders once the workspace's account is restored", async () => {
+			vi.mocked(healLoginDirs).mockImplementation(async () => {
 				expect(restoreWorkspaceAccount).toHaveBeenCalled();
 			});
 			await activateExtension();
-			expect(removeAbandonedLoginDirs).toHaveBeenCalledWith(store);
+			expect(healLoginDirs).toHaveBeenCalledWith(store);
 		});
 
 		it("logs a failed cleanup without blocking startup", async () => {
 			const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-			vi.mocked(removeAbandonedLoginDirs).mockRejectedValue(new Error('Could not delete Keychain item "x"'));
+			vi.mocked(healLoginDirs).mockRejectedValue(new Error('Could not delete Keychain item "x"'));
 			await activateExtension();
 			await vi.waitFor(() => expect(error).toHaveBeenCalledWith("[claudeAccounts] cleanup failed", 'Could not delete Keychain item "x"'));
 			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
@@ -155,7 +167,6 @@ describe("extension", () => {
 			vi.mocked(refreshStatusBar).mockClear();
 			await registeredCommand(id)();
 			expect(handler).toHaveBeenCalledWith(store);
-			expect(rememberWorkspaceAccount).toHaveBeenCalledWith(environment);
 			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
 		});
 
@@ -165,16 +176,24 @@ describe("extension", () => {
 			expect(logInAgain).toHaveBeenCalledWith(store, "work");
 		});
 
-		it("runs every command through the Claude Code restarter, after the window's login is remembered", async () => {
+		it("runs every command through the Claude Code restarter", async () => {
 			await activateExtension();
-			vi.mocked(ClaudeCodeRestarter.prototype.follow).mockImplementation(async (change) => {
-				expect(rememberWorkspaceAccount).not.toHaveBeenCalled();
-				await change();
-				expect(rememberWorkspaceAccount).toHaveBeenCalledWith(environment);
-			});
 			await registeredCommand("claudeAccounts.switch")();
 			expect(ClaudeCodeRestarter).toHaveBeenCalledWith(store);
 			expect(ClaudeCodeRestarter.prototype.follow).toHaveBeenCalledTimes(1);
+		});
+
+		it("hands every redirect to new terminals the moment it happens, until the extension stops", async () => {
+			const context = await activateExtension();
+			redirectConfigDir("/accounts/logins/work-id");
+			expect(rememberWorkspaceAccount).toHaveBeenCalledWith(context);
+			for (const subscription of context.subscriptions) {
+				subscription.dispose();
+			}
+
+			vi.mocked(rememberWorkspaceAccount).mockClear();
+			redirectConfigDir(undefined);
+			expect(rememberWorkspaceAccount).not.toHaveBeenCalled();
 		});
 
 		it("shows a failed command's error and still refreshes", async () => {
@@ -248,6 +267,18 @@ describe("extension", () => {
 			expect(refreshStatusBar).not.toHaveBeenCalled();
 			onWindowState({ focused: true });
 			expect(refreshStatusBar).toHaveBeenCalledTimes(1);
+			expect(restoreWorkspaceAccount).toHaveBeenCalledTimes(1);
+		});
+
+		it("follows an account another window signed in everywhere once this window has focus again", async () => {
+			await activateExtension();
+			vi.mocked(refreshStatusBar).mockClear();
+			vi.mocked(everywhereAccountFor).mockReturnValue("work-id");
+			listenerFor<{ focused: boolean }>(window.onDidChangeWindowState)({ focused: true });
+			await vi.waitFor(() => expect(refreshStatusBar).toHaveBeenCalledTimes(1));
+			expect(everywhereAccountFor).toHaveBeenCalledWith(context, store);
+			expect(restoreWorkspaceAccount).toHaveBeenCalledTimes(2);
+			expect(ClaudeCodeRestarter.prototype.follow).toHaveBeenCalledTimes(1);
 		});
 
 		it("stops the timer when its subscriptions are disposed", async () => {

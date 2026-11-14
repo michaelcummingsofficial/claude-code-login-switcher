@@ -6,6 +6,7 @@ import { CredentialsFile } from "../../src/credentials/CredentialsFile";
 import { KeychainCredential } from "../../src/credentials/KeychainCredential";
 import { resolveLiveCredential } from "../../src/credentials/resolveLiveCredential";
 import { readSecret } from "../../src/keychain/readSecret";
+import { serviceForConfigDir } from "../../src/keychain/serviceForConfigDir";
 import { usePlatform } from "../helpers/usePlatform";
 import { useSettings } from "../helpers/useSettings";
 
@@ -56,5 +57,22 @@ describe("resolveLiveCredential", () => {
 		useConfigDir(false);
 		vi.mocked(readSecret).mockResolvedValue(null);
 		await expect(resolveLiveCredential()).resolves.toBeInstanceOf(KeychainCredential);
+	});
+
+	describe("for another config folder", () => {
+		it.each(["linux", "win32"] as const)("uses that folder's .credentials.json on %s", async (platform) => {
+			usePlatform(platform);
+			useConfigDir(false);
+			const live = await resolveLiveCredential(path.join("accounts", "logins", "work-id"));
+			expect(live.location).toBe(path.join("accounts", "logins", "work-id", ".credentials.json"));
+		});
+
+		it("uses the Keychain item Claude Code names after that folder on macOS", async () => {
+			usePlatform("darwin");
+			useSettings({ keychainService: "Shared item" });
+			vi.mocked(readSecret).mockResolvedValue("work-tokens");
+			const live = await resolveLiveCredential("/accounts/logins/work-id");
+			expect(live.location).toBe(`Keychain item "${serviceForConfigDir("/accounts/logins/work-id")}"`);
+		});
 	});
 });

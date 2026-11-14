@@ -1,4 +1,5 @@
 import { redirectMarker } from "../settings/redirectMarker";
+import { redirectListeners } from "./redirectListeners";
 
 /**
  * The Claude Code panel builds each session's environment from this process, so CLAUDE_CONFIG_DIR is the only
@@ -9,13 +10,14 @@ export function redirectConfigDir(dir: string | undefined): void {
 	if (dir) {
 		process.env[redirectMarker] = start ?? process.env.CLAUDE_CONFIG_DIR ?? "";
 		process.env.CLAUDE_CONFIG_DIR = dir;
-		return;
+	} else {
+		delete process.env[redirectMarker];
+		if (start) {
+			process.env.CLAUDE_CONFIG_DIR = start;
+		} else if (start !== undefined) {
+			delete process.env.CLAUDE_CONFIG_DIR;
+		}
 	}
 
-	delete process.env[redirectMarker];
-	if (start) {
-		process.env.CLAUDE_CONFIG_DIR = start;
-	} else if (start !== undefined) {
-		delete process.env.CLAUDE_CONFIG_DIR;
-	}
+	redirectListeners.forEach((listener) => listener());
 }
