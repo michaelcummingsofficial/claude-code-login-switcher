@@ -105,11 +105,11 @@ Cursor, Windsurf, and VSCodium install the same extension from [Open VSX](https:
 
 - **Usage.** With `claudeAccounts.showUsage` on, the extension reads the window's live login and asks `api.anthropic.com/api/oauth/usage` for its limits, the endpoint behind Claude Code's `/usage`. It asks at most every two minutes while the window has focus, and waits five minutes after an account is rate limited. It never refreshes a token. After a switch to an account whose token has expired, it checks every 15 seconds and shows usage once Claude Code refreshes the token.
 
-- **Expiring logins.** Anthropic sets a login's expiry when you sign in, and refreshing doesn't move it. Three days out, the status bar and the picker flag the account. Once Claude Code can no longer refresh a login, it clears the tokens, and the extension flags that too.
+- **Expiring logins.** Anthropic sets a login's expiry when you sign in. Refreshing doesn't extend it. Three days out, the status bar and the picker flag the account. Once Claude Code can no longer refresh a login, it clears the tokens, and the extension flags that too.
 - **Logging in again.** `Claude Accounts: Log In Again`, the yellow status bar, or picking an expired account runs `claude auth login`. The new tokens replace the saved account's own. A login is matched to a saved account by its email and organization, so `Add Account` and `Save Current Account` renew an account they already know instead of saving it twice.
 - **Finishing a login.** While `claude auth login` runs, a notification shows a spinner and checks for the new login every few seconds. Once it lands, the account is saved. There is nothing to click.
 - **Logging in again in a workspace.** A saved account signs in again where its login already lives, so every workspace using it gets the new login at once. A new account signs in to a folder of its own. A cancelled login keeps that folder for the next try.
-- **Sign-ins from elsewhere.** A sign-in the extension didn't start, such as `claude auth login` in a terminal, is never saved over the active account. The status bar shows it as unsaved until you save it.
+- **Sign-ins from elsewhere.** A sign-in the extension didn't start, such as `claude auth login` in a terminal or `/login` in Claude Code, could be any account. The extension asks `claude auth status` who signed in. A sign-in to the active account renews it. Any other account is never saved over it, and the status bar shows it as unsaved until you save it.
 
 ## Privacy and security
 
@@ -163,7 +163,7 @@ Click the yellow status bar, or run `Claude Accounts: Log In Again`. The account
 
 ### Can I sign in with `claude auth login` in a terminal?
 
-You can, but `Claude Accounts: Add Account (Log In)` saves the account for you. A sign-in the extension didn't start could be any account, so it is never saved over the active one. The status bar shows `Claude: unsaved` instead. Run `Claude Accounts: Save Current Account`. A login to an account you already saved renews it, matched by its email.
+You can. A sign-in to the account that is already active renews it, matched by its email. A sign-in to any other account is never saved over the active one, and the status bar shows `Claude: unsaved` instead. Run `Claude Accounts: Save Current Account`, or use `Claude Accounts: Add Account (Log In)`, which saves the account for you.
 
 ### Does it work with `CLAUDE_CONFIG_DIR`?
 

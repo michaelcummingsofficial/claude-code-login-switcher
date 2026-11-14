@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import { readAuthStatus } from "../../src/claude/readAuthStatus";
 import { resolveLiveCredential } from "../../src/credentials/resolveLiveCredential";
 import { syncActiveAccount } from "../../src/profiles/syncActiveAccount";
 import { createTempStore } from "../helpers/createTempStore";
 import { memoryVault } from "../helpers/memoryVault";
 import { useLiveCredential } from "../helpers/useLiveCredential";
+import { useSettings } from "../helpers/useSettings";
 
+vi.mock("../../src/claude/readAuthStatus");
 vi.mock("../../src/credentials/resolveLiveCredential");
 
 const rotated = '{"claudeAiOauth":{"accessToken":"rotated","refreshTokenExpiresAt":1789000000000}}';
@@ -87,10 +90,10 @@ describe("syncActiveAccount", () => {
 	});
 
 	it("replaces a login that still works with the account's later sign-in", async () => {
-		const renewed = `{"claudeAiOauth":{"accessToken":"renewed","expiresAt":1000,"refreshTokenExpiresAt":${Date.now() + 9000}}}`;
+		const renewed = `{"claudeAiOauth":{"accessToken":"renewed","expiresAt":1000,"refreshTokenExpiresAt":${Date.now() + 9_000_000}}}`;
 		const store = createTempStore();
 		const work = await store.add({ label: "Work" }, renewed);
-		const live = useLiveCredential(`{"claudeAiOauth":{"accessToken":"previous","expiresAt":2000,"refreshTokenExpiresAt":${Date.now() + 5000}}}`);
+		const live = useLiveCredential(`{"claudeAiOauth":{"accessToken":"previous","expiresAt":2000,"refreshTokenExpiresAt":${Date.now() + 5_000_000}}}`);
 		await syncActiveAccount(store);
 		expect(live.value).toBe(renewed);
 		await expect(store.credentialsFor(work.id)).resolves.toBe(renewed);
@@ -106,12 +109,52 @@ describe("syncActiveAccount", () => {
 
 	it("never saves a sign-in made outside the extension over the active account, which may be someone else's", async () => {
 		const store = createTempStore();
-		const saved = `{"claudeAiOauth":{"accessToken":"work","refreshTokenExpiresAt":${Date.now() + 5000}}}`;
+		const saved = `{"claudeAiOauth":{"accessToken":"work","refreshTokenExpiresAt":${Date.now() + 5_000_000}}}`;
 		const work = await store.add({ label: "Work" }, saved);
-		useLiveCredential(`{"claudeAiOauth":{"accessToken":"outside","refreshTokenExpiresAt":${Date.now() + 9000}}}`);
+		useLiveCredential(`{"claudeAiOauth":{"accessToken":"outside","refreshTokenExpiresAt":${Date.now() + 9_000_000}}}`);
 		await syncActiveAccount(store);
 		await expect(store.credentialsFor(work.id)).resolves.toBe(saved);
 		await expect(store.activeId()).resolves.toBeNull();
+	});
+
+	it("keeps a refresh whose recomputed expiry lands a moment before the saved copy's instead of restoring the spent tokens", async () => {
+		const lifetimeEnd = Date.now() + 9_000_000;
+		const spent = `{"claudeAiOauth":{"accessToken":"a1","refreshToken":"r1","expiresAt":1000,"refreshTokenExpiresAt":${lifetimeEnd + 400}}}`;
+		const refreshed = `{"claudeAiOauth":{"accessToken":"a2","refreshToken":"r2","expiresAt":2000,"refreshTokenExpiresAt":${lifetimeEnd}}}`;
+		const store = createTempStore();
+		const work = await store.add({ label: "Work" }, spent);
+		const live = useLiveCredential(refreshed);
+		await syncActiveAccount(store);
+		expect(live.value).toBe(refreshed);
+		await expect(store.credentialsFor(work.id)).resolves.toBe(refreshed);
+		await expect(store.activeId()).resolves.toBe(work.id);
+	});
+
+	it("keeps the active account when Claude Code says its own owner signed in again", async () => {
+		useSettings({ claudePath: "/bin/claude" });
+		const store = createTempStore();
+		const work = await store.add(
+			{ label: "Work", email: "ada@work.com" },
+			`{"claudeAiOauth":{"accessToken":"work","refreshTokenExpiresAt":${Date.now() + 5_000_000}}}`
+		);
+		const renewed = `{"claudeAiOauth":{"accessToken":"renewed","refreshTokenExpiresAt":${Date.now() + 9_000_000}}}`;
+		useLiveCredential(renewed);
+		vi.mocked(readAuthStatus).mockResolvedValue({ loggedIn: true, email: "Ada@Work.com" });
+		await syncActiveAccount(store);
+		expect(readAuthStatus).toHaveBeenCalledWith("/bin/claude");
+		await expect(store.activeId()).resolves.toBe(work.id);
+		await expect(store.credentialsFor(work.id)).resolves.toBe(renewed);
+	});
+
+	it("stops treating an account as active once Claude Code says someone else signed in", async () => {
+		const store = createTempStore();
+		const saved = `{"claudeAiOauth":{"accessToken":"work","refreshTokenExpiresAt":${Date.now() + 5_000_000}}}`;
+		const work = await store.add({ label: "Work", email: "ada@work.com" }, saved);
+		useLiveCredential(`{"claudeAiOauth":{"accessToken":"home","refreshTokenExpiresAt":${Date.now() + 9_000_000}}}`);
+		vi.mocked(readAuthStatus).mockResolvedValue({ loggedIn: true, email: "ada@home.com" });
+		await syncActiveAccount(store);
+		await expect(store.activeId()).resolves.toBeNull();
+		await expect(store.credentialsFor(work.id)).resolves.toBe(saved);
 	});
 
 	it("records a plan change that arrives with refreshed tokens", async () => {

@@ -11,10 +11,17 @@ describe("isSuperseded", () => {
 	});
 
 	it("prefers a later sign-in over an older one that refreshed more recently", () => {
-		const renewed = JSON.stringify({ claudeAiOauth: { expiresAt: 1000, refreshTokenExpiresAt: 9000 } });
-		const previous = JSON.stringify({ claudeAiOauth: { expiresAt: 2000, refreshTokenExpiresAt: 5000 } });
+		const renewed = JSON.stringify({ claudeAiOauth: { expiresAt: 1000, refreshTokenExpiresAt: 9_000_000 } });
+		const previous = JSON.stringify({ claudeAiOauth: { expiresAt: 2000, refreshTokenExpiresAt: 5_000_000 } });
 		expect(isSuperseded(previous, renewed)).toBe(true);
 		expect(isSuperseded(renewed, previous)).toBe(false);
+	});
+
+	it("orders refreshes of one login by when they happened, whichever way their expiries drifted", () => {
+		const spent = JSON.stringify({ claudeAiOauth: { expiresAt: 1000, refreshTokenExpiresAt: 5_000_400 } });
+		const refreshed = JSON.stringify({ claudeAiOauth: { expiresAt: 2000, refreshTokenExpiresAt: 5_000_000 } });
+		expect(isSuperseded(spent, refreshed)).toBe(true);
+		expect(isSuperseded(refreshed, spent)).toBe(false);
 	});
 
 	it("treats a copy without an expiry as the oldest", () => {

@@ -86,9 +86,16 @@ describe("waitForLogin", () => {
 		live.value = signIn("refreshed", 5000);
 		await vi.advanceTimersByTimeAsync(60_000);
 		expect(waiting.result()).toBeUndefined();
-		live.value = signIn("renewed", 9000);
+		live.value = signIn("renewed", 5000 + 120_000);
 		await vi.advanceTimersByTimeAsync(4500);
 		expect(waiting.result()).toBe(true);
+	});
+
+	it("waits through a refresh whose recomputed expiry drifted a moment later", async () => {
+		const waiting = wait(signIn("old", 5000));
+		live.value = signIn("refreshed", 5400);
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(waiting.result()).toBeUndefined();
 	});
 
 	it("trusts a changed login without expiries only once the CLI has exited", async () => {

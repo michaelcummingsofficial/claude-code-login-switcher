@@ -1,7 +1,10 @@
+import { readAuthStatus } from "../claude/readAuthStatus";
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
+import { getSettings } from "../settings/getSettings";
 import { detectActiveProfile } from "./detectActiveProfile";
 import { isLaterLogin } from "./isLaterLogin";
 import { isLoginEnded } from "./isLoginEnded";
+import { isSameAccount } from "./isSameAccount";
 import { isSuperseded } from "./isSuperseded";
 import type { Profile, ProfileStore } from "./ProfileStore";
 import { refreshTokenExpiryOf } from "./refreshTokenExpiryOf";
@@ -44,8 +47,8 @@ export async function syncActiveAccount(store: ProfileStore): Promise<void> {
 			return;
 		}
 
-		// Refreshing never moves a login's expiry, so a later one is a sign-in the extension did not make, maybe as someone else.
-		if (saved !== null && isLaterLogin(live, saved)) {
+		// A later sign-in the extension did not make may be someone else's, so it is kept only once Claude Code names the account.
+		if (saved !== null && isLaterLogin(live, saved) && !(await isSignedInAs(store, id))) {
 			await store.setActive(null);
 			return;
 		}
@@ -61,4 +64,9 @@ export async function syncActiveAccount(store: ProfileStore): Promise<void> {
 	} catch (error) {
 		console.error("[claudeAccounts] sync failed", (error as Error).message);
 	}
+}
+
+async function isSignedInAs(store: ProfileStore, id: string): Promise<boolean> {
+	const status = await readAuthStatus(getSettings().claudePath);
+	return status?.email !== undefined && (await store.list()).some((profile) => profile.id === id && isSameAccount(profile, status));
 }

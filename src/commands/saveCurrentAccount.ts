@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { type AuthStatus, readAuthStatus } from "../claude/readAuthStatus";
 import { resolveLiveCredential } from "../credentials/resolveLiveCredential";
 import { detectActiveProfile } from "../profiles/detectActiveProfile";
+import { isSameAccount } from "../profiles/isSameAccount";
 import type { Profile, ProfileStore } from "../profiles/ProfileStore";
 import { refreshTokenExpiryOf } from "../profiles/refreshTokenExpiryOf";
 import { getSettings } from "../settings/getSettings";
@@ -68,9 +69,4 @@ function detailsOf(status: AuthStatus | null, live: string): Omit<Profile, "id" 
 
 async function findAccount(store: ProfileStore, status: AuthStatus | null): Promise<Profile | undefined> {
 	return status?.email ? (await store.list()).find((profile) => isSameAccount(profile, status)) : undefined;
-}
-
-/** One email can belong to a personal plan and a Team organization, which are separate accounts. */
-function isSameAccount(profile: Profile, status: AuthStatus): boolean {
-	return profile.email?.toLowerCase() === status.email?.toLowerCase() && (!profile.orgName || !status.orgName || profile.orgName === status.orgName);
 }
